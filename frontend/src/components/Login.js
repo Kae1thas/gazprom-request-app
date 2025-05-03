@@ -1,18 +1,34 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Здесь ты можешь добавить логику для аутентификации через Django API
-    console.log({ username, password });
+    try {
+      const response = await axios.post('http://localhost:8000/api/token/', {
+        username,
+        password,
+      });
+      // Store the token in localStorage
+      localStorage.setItem('token', response.data.access);
+      // Reset error and redirect to dashboard
+      setError('');
+      navigate('/dashboard');
+    } catch (err) {
+      setError('Invalid username or password');
+    }
   };
 
   return (
-    <div className="container">
-      <h1 className="mt-5">Login</h1>
+    <div className="container mt-5">
+      <h1>Login</h1>
+      {error && <div className="alert alert-danger">{error}</div>}
       <form onSubmit={handleSubmit}>
         <div className="mb-3">
           <label htmlFor="username" className="form-label">Username</label>
@@ -22,6 +38,7 @@ const Login = () => {
             id="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            required
           />
         </div>
         <div className="mb-3">
@@ -32,6 +49,7 @@ const Login = () => {
             id="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
         </div>
         <button type="submit" className="btn btn-primary">Login</button>
