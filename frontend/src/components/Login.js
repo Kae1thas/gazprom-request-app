@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import axios from 'axios';
 
 const Login = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -11,17 +12,18 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      console.log('Sending login request with:', { email, password });
       const response = await axios.post('http://localhost:8000/api/token/', {
-        username,
+        email,
         password,
       });
-      // Store the token in localStorage
       localStorage.setItem('token', response.data.access);
-      // Reset error and redirect to dashboard
+      toast.success('Login successful!');
       setError('');
       navigate('/dashboard');
     } catch (err) {
-      setError('Invalid username or password');
+      console.error('Login error:', err.response?.data);
+      setError(err.response?.data?.detail || 'Invalid email or password');
     }
   };
 
@@ -31,13 +33,13 @@ const Login = () => {
       {error && <div className="alert alert-danger">{error}</div>}
       <form onSubmit={handleSubmit}>
         <div className="mb-3">
-          <label htmlFor="username" className="form-label">Username</label>
+          <label htmlFor="email" className="form-label">Email</label>
           <input
-            type="text"
+            type="email"
             className="form-control"
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
         </div>
