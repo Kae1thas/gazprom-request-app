@@ -1,23 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useContext } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import { AuthContext } from './AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      console.log('Sending login request with:', { email, password });
-      const response = await axios.post('http://localhost:8000/api/token/', {
-        email,
-        password,
-      });
-      localStorage.setItem('token', response.data.access);
+      await login(email, password);
       toast.success('Login successful!');
       setError('');
       navigate('/dashboard');
@@ -57,6 +53,9 @@ const Login = () => {
           </div>
           <button type="submit" className="btn btn-primary w-100">Login</button>
         </form>
+        <div className="text-center mt-3">
+          <p>Don't have an account? <Link to="/register" className="text-primary">Register</Link></p>
+        </div>
       </div>
     </div>
   );

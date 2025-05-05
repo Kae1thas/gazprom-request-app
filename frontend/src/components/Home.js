@@ -1,6 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { Link } from 'react-router-dom';
+import { AuthContext } from './AuthContext';
 
 const Home = () => {
+  const { user } = useContext(AuthContext);
+
   return (
     <div className="container mt-5">
       <div className="card text-center">
@@ -8,7 +12,7 @@ const Home = () => {
         <div className="card-body">
           <p className="lead">Join our team and build your career with one of the leading energy companies in the world.</p>
           <p>Explore opportunities, submit your resume, and start your journey with Gazprom today!</p>
-          <a href="/register" className="btn btn-primary">Get Started</a>
+          <Link to={user ? "/dashboard" : "/register"} className="btn btn-primary">Get Started</Link>
         </div>
       </div>
     </div>

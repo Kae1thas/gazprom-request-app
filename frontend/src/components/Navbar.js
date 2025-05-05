@@ -1,36 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { AuthContext } from './AuthContext';
 
 const Navbar = () => {
-  const [user, setUser] = useState(null);
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Запрос для получения данных пользователя
-      axios.get('http://localhost:8000/api/candidates/', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(response => {
-        // Предполагаем, что текущий пользователь — первый кандидат
-        const candidate = response.data[0];
-        setUser({
-          email: candidate.user.email,
-          fullName: `${candidate.user.last_name} ${candidate.user.first_name} ${candidate.user.patronymic}`.trim() || candidate.user.email
-        });
-      })
-      .catch(() => {
-        localStorage.removeItem('token');
-        setUser(null);
-      });
-    }
-  }, []);
-
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
+    logout();
     navigate('/');
   };
 

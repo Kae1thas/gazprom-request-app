@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -14,10 +14,9 @@ const Register = () => {
       console.log('Sending register request with:', data);
       const response = await axios.post('http://localhost:8000/api/register/', data);
       console.log('Register response:', response.data);
-      localStorage.setItem('token', response.data.access);
-      toast.success('Registration successful!');
+      toast.success('Registration successful! Please log in.');
       setError('');
-      navigate('/dashboard');
+      navigate('/login');
     } catch (err) {
       console.error('Register error:', err.response?.data);
       setError(err.response?.data?.email || 'Registration failed');
@@ -85,6 +84,9 @@ const Register = () => {
           </div>
           <button type="submit" className="btn btn-primary w-100">Register</button>
         </form>
+        <div className="text-center mt-3">
+          <p>Already have an account? <Link to="/login" className="text-primary">Login</Link></p>
+        </div>
       </div>
     </div>
   );
