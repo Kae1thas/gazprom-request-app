@@ -11,6 +11,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 
+// Главный компонент приложения
 function App() {
   return (
     <AuthProvider>

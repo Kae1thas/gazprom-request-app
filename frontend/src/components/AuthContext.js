@@ -1,12 +1,15 @@
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
+// Создаем контекст для управления авторизацией
 export const AuthContext = createContext();
 
+// Провайдер контекста авторизации
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Проверяем наличие токена при загрузке
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -29,6 +32,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // Функция входа в систему
   const login = async (email, password) => {
     try {
       const response = await axios.post('http://localhost:8000/api/token/', { email, password });
@@ -46,6 +50,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Функция выхода из системы
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);

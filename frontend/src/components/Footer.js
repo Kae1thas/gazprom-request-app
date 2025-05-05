@@ -4,8 +4,8 @@ const Footer = () => {
   return (
     <footer className="footer">
       <div className="container">
-        <p>&copy; {new Date().getFullYear()} Gazprom Careers. All rights reserved.</p>
-        <p>Contact us: <a href="mailto:careers@gazprom.com" className="text-white">careers@gazprom.com</a></p>
+        <p className="mb-0">© 2025 «Газпром Карьера». Все права защищены.</p>
+        <p className="mb-0">Контакты: <a href="mailto:hr@inform.gazprom.ru">hr@inform.gazprom.ru</a></p>
       </div>
     </footer>
   );
