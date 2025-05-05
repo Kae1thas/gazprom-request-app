@@ -19,7 +19,8 @@ export const AuthProvider = ({ children }) => {
         .then(response => {
           setUser({
             email: response.data.user.email,
-            fullName: `${response.data.user.last_name} ${response.data.user.first_name} ${response.data.user.patronymic}`.trim() || response.data.user.email
+            fullName: `${response.data.user.last_name} ${response.data.user.first_name} ${response.data.user.patronymic}`.trim() || response.data.user.email,
+            isStaff: response.data.is_staff
           });
         })
         .catch(() => {
@@ -42,7 +43,8 @@ export const AuthProvider = ({ children }) => {
       });
       setUser({
         email: userResponse.data.user.email,
-        fullName: `${userResponse.data.user.last_name} ${userResponse.data.user.first_name} ${userResponse.data.user.patronymic}`.trim() || userResponse.data.user.email
+        fullName: `${userResponse.data.user.last_name} ${userResponse.data.user.first_name} ${userResponse.data.user.patronymic}`.trim() || userResponse.data.user.email,
+        isStaff: userResponse.data.is_staff
       });
       return true;
     } catch (err) {

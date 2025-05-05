@@ -27,8 +27,27 @@ class CandidateSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'date_of_birth', 'education', 'phone_number']
 
 class ResumeSerializer(serializers.ModelSerializer):
-    candidate = CandidateSerializer()
-
     class Meta:
         model = Resume
-        fields = ['id', 'candidate', 'content', 'status', 'created_at']
+        fields = ['id', 'content', 'status', 'created_at']
+        read_only_fields = ['id', 'status', 'created_at']
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Содержание резюме не может быть пустым")
+        return value
+
+class ResumeStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Resume
+        fields = ['status']
+
+class ResumeEditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Resume
+        fields = ['content']
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Содержание резюме не может быть пустым")
+        return value

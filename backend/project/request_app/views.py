@@ -1,20 +1,20 @@
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .models import User, Candidate, Resume
-from .serializers import CandidateSerializer, ResumeSerializer, UserSerializer
+from .serializers import CandidateSerializer, ResumeSerializer, UserSerializer, ResumeStatusUpdateSerializer, ResumeEditSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 class CandidateViewSet(viewsets.ModelViewSet):
     queryset = Candidate.objects.all()
     serializer_class = CandidateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]  # Только модераторы (is_staff)
 
 class ResumeViewSet(viewsets.ModelViewSet):
     queryset = Resume.objects.all()
     serializer_class = ResumeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]  # Только модераторы могут видеть все резюме
 
 class RegisterView(APIView):
     def post(self, request):
@@ -41,6 +41,85 @@ class MeView(APIView):
         try:
             candidate = Candidate.objects.get(user=user)
             serializer = CandidateSerializer(candidate)
-            return Response(serializer.data)
+            return Response({
+                'user': serializer.data['user'],
+                'is_staff': user.is_staff,
+                'candidate': serializer.data
+            })
         except Candidate.DoesNotExist:
             return Response({'error': 'Candidate profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class ResumeCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            candidate = Candidate.objects.get(user=request.user)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Только кандидаты могут подавать резюме'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ResumeSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(candidate=candidate)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ResumeStatusUpdateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def patch(self, request, pk):
+        try:
+            resume = Resume.objects.get(pk=pk)
+        except Resume.DoesNotExist:
+            return Response({'error': 'Резюме не найдено'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ResumeStatusUpdateSerializer(resume, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class MyResumesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            candidate = Candidate.objects.get(user=request.user)
+            resumes = Resume.objects.filter(candidate=candidate)
+            serializer = ResumeSerializer(resumes, many=True)
+            return Response(serializer.data)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+class ResumeDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        try:
+            candidate = Candidate.objects.get(user=request.user)
+            resume = Resume.objects.get(pk=pk, candidate=candidate)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
+        except Resume.DoesNotExist:
+            return Response({'error': 'Резюме не найдено или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
+
+        resume.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class ResumeEditView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            candidate = Candidate.objects.get(user=request.user)
+            resume = Resume.objects.get(pk=pk, candidate=candidate)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
+        except Resume.DoesNotExist:
+            return Response({'error': 'Резюме не найдено или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ResumeEditSerializer(resume, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(ResumeSerializer(resume).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
