@@ -2,18 +2,33 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
+import Select from 'react-select';
+import { IMaskInput } from 'react-imask';
+import { FaEye, FaEdit, FaTrash } from 'react-icons/fa';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
-  const [candidates, setCandidates] = useState([]);
   const [resumes, setResumes] = useState([]);
   const [resumeContent, setResumeContent] = useState('');
+  const [education, setEducation] = useState(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [resumeToDelete, setResumeToDelete] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [resumeToEdit, setResumeToEdit] = useState(null);
   const [editContent, setEditContent] = useState('');
+  const [editEducation, setEditEducation] = useState(null);
+  const [editPhoneNumber, setEditPhoneNumber] = useState('');
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [resumeToView, setResumeToView] = useState(null);
+  const [statusComment, setStatusComment] = useState('');
+
+  const educationOptions = [
+    { value: 'SECONDARY', label: 'Среднее' },
+    { value: 'HIGHER', label: 'Высшее' },
+    { value: 'POSTGRADUATE', label: 'Аспирантура' }
+  ];
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -22,25 +37,14 @@ const Dashboard = () => {
       return;
     }
 
-    // Получаем список резюме
     const resumeUrl = user?.isStaff ? 'http://localhost:8000/api/resumes/' : 'http://localhost:8000/api/my-resumes/';
     axios.get(resumeUrl, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(response => setResumes(response.data))
       .catch(() => setError('Не удалось загрузить резюме'));
-
-    // Получаем список кандидатов только для модераторов
-    if (user?.isStaff) {
-      axios.get('http://localhost:8000/api/candidates/', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(response => setCandidates(response.data))
-        .catch(() => setError('Не удалось загрузить кандидатов'));
-    }
   }, [user]);
 
-  // Обработчик отправки резюме
   const handleSubmitResume = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
@@ -49,33 +53,44 @@ const Dashboard = () => {
       return;
     }
 
+    const cleanedPhoneNumber = phoneNumber ? phoneNumber.replace(/[\s()-\u200B-\u200F]/g, '') : '';
+    if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
+      setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
+      return;
+    }
+
     try {
       const response = await axios.post('http://localhost:8000/api/resume/create/', 
-        { content: resumeContent },
+        {
+          content: resumeContent,
+          education: education?.value || '',
+          phone_number: cleanedPhoneNumber
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResumes([...resumes, response.data]);
       setResumeContent('');
+      setEducation(null);
+      setPhoneNumber('');
       setError('');
       toast.success('Резюме успешно отправлено!');
     } catch (err) {
-      setError(err.response?.data?.content || 'Ошибка при отправке резюме');
+      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || 'Ошибка при отправке резюме';
+      toast.error(errorMsg);
+      setError(errorMsg);
     }
   };
 
-  // Открытие модального окна для подтверждения удаления
   const handleOpenDeleteModal = (resumeId) => {
     setResumeToDelete(resumeId);
     setShowDeleteModal(true);
   };
 
-  // Закрытие модального окна удаления
   const handleCloseDeleteModal = () => {
     setShowDeleteModal(false);
     setResumeToDelete(null);
   };
 
-  // Обработчик удаления резюме
   const handleDeleteResume = async () => {
     const token = localStorage.getItem('token');
     try {
@@ -86,26 +101,29 @@ const Dashboard = () => {
       toast.success('Резюме успешно удалено!');
       handleCloseDeleteModal();
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка при удалении резюме');
+      const errorMsg = err.response?.data?.error || 'Ошибка при удалении резюме';
+      toast.error(errorMsg);
+      setError(errorMsg);
       handleCloseDeleteModal();
     }
   };
 
-  // Открытие модального окна для редактирования
   const handleOpenEditModal = (resume) => {
     setResumeToEdit(resume.id);
     setEditContent(resume.content);
+    setEditEducation(educationOptions.find(opt => opt.value === resume.education) || null);
+    setEditPhoneNumber(resume.phone_number || '');
     setShowEditModal(true);
   };
 
-  // Закрытие модального окна редактирования
   const handleCloseEditModal = () => {
     setShowEditModal(false);
     setResumeToEdit(null);
     setEditContent('');
+    setEditEducation(null);
+    setEditPhoneNumber('');
   };
 
-  // Обработчик редактирования резюме
   const handleEditResume = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
@@ -114,9 +132,19 @@ const Dashboard = () => {
       return;
     }
 
+    const cleanedPhoneNumber = editPhoneNumber ? editPhoneNumber.replace(/[\s()-\u200B-\u200F]/g, '') : '';
+    if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
+      setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
+      return;
+    }
+
     try {
       const response = await axios.patch(`http://localhost:8000/api/resume/${resumeToEdit}/edit/`, 
-        { content: editContent },
+        {
+          content: editContent.trim(),
+          education: editEducation?.value || '',
+          phone_number: cleanedPhoneNumber
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResumes(resumes.map(resume => 
@@ -125,24 +153,40 @@ const Dashboard = () => {
       toast.success('Резюме успешно обновлено!');
       handleCloseEditModal();
     } catch (err) {
-      setError(err.response?.data?.content || 'Ошибка при обновлении резюме');
+      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.education || err.response?.data?.error || 'Ошибка при обновлении резюме';
+      toast.error(errorMsg);
+      setError(errorMsg);
     }
   };
 
-  // Обработчик изменения статуса резюме
+  const handleOpenViewModal = (resume) => {
+    setResumeToView(resume);
+    setStatusComment('');
+    setShowViewModal(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setShowViewModal(false);
+    setResumeToView(null);
+    setStatusComment('');
+  };
+
   const handleStatusUpdate = async (resumeId, newStatus) => {
     const token = localStorage.getItem('token');
     try {
       const response = await axios.patch(`http://localhost:8000/api/resume/${resumeId}/status/`, 
-        { status: newStatus },
+        { status: newStatus, comment: statusComment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResumes(resumes.map(resume => 
-        resume.id === resumeId ? { ...resume, status: response.data.status } : resume
+        resume.id === resumeId ? { ...resume, status: response.data.status, comment: response.data.comment } : resume
       ));
       toast.success(`Статус резюме обновлён: ${newStatus}`);
+      handleCloseViewModal();
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка при обновлении статуса');
+      const errorMsg = err.response?.data?.error || 'Ошибка при обновлении статуса';
+      toast.error(errorMsg);
+      setError(errorMsg);
     }
   };
 
@@ -150,8 +194,80 @@ const Dashboard = () => {
     <div className="container mt-5">
       <h1 className="text-center mb-4">Личный кабинет</h1>
       {error && <div className="alert alert-danger">{error}</div>}
-      
-      {/* Форма подачи резюме для кандидатов */}
+
+      <div className="card mb-4">
+        <h2 className="card-header">{user?.isStaff ? 'Все резюме' : 'Ваши резюме'}</h2>
+        <div className="card-body">
+          {resumes.length === 0 ? (
+            <p>{user?.isStaff ? 'Резюме отсутствуют.' : 'У вас пока нет резюме.'}</p>
+          ) : (
+            <table className="table table-striped">
+              <thead>
+                <tr>
+                  <th>Кандидат</th>
+                  <th>Содержание</th>
+                  <th>Образование</th>
+                  <th>Телефон</th>
+                  <th>Статус</th>
+                  <th>Дата создания</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumes.map(resume => (
+                  <tr key={resume.id}>
+                    <td>
+                      {resume.candidate?.user
+                        ? `${resume.candidate.user.last_name || ''} ${resume.candidate.user.first_name || ''} ${resume.candidate.user.patronymic || ''}`.trim()
+                        : 'Кандидат не указан'}
+                    </td>
+                    <td>{resume.content.substring(0, 50)}...</td>
+                    <td>{resume.education_display || 'Не указано'}</td>
+                    <td>{resume.phone_number || 'Не указан'}</td>
+                    <td>{resume.status_display}</td>
+                    <td>{new Date(resume.created_at).toLocaleDateString()}</td>
+                    <td className="align-middle">
+                      <div className="d-flex align-items-center gap-2">
+                      <button 
+                          className="btn btn-square btn-primary"
+                          onClick={() => handleOpenViewModal(resume)}
+                          title="Просмотреть резюме"
+                        >
+                          <FaEye />
+                        </button>
+                        {!user?.isStaff && (
+                          <>
+                            {resume.status !== 'ACCEPTED' && (
+                              <>
+                                <button 
+                                  className="btn btn-square btn-edit"
+                                  onClick={() => handleOpenEditModal(resume)}
+                                  title="Редактировать резюме"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button 
+                                  className="btn btn-square btn-danger"
+                                  onClick={() => handleOpenDeleteModal(resume.id)}
+                                  title="Удалить резюме"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
       {!user?.isStaff && (
         <div className="card mb-4">
           <h2 className="card-header">Подать резюме</h2>
@@ -168,81 +284,35 @@ const Dashboard = () => {
                   placeholder="Введите содержание вашего резюме"
                 />
               </div>
+              <div className="mb-3">
+                <label htmlFor="education" className="form-label">Образование</label>
+                <Select
+                  id="education"
+                  options={educationOptions}
+                  value={education}
+                  onChange={setEducation}
+                  placeholder="Выберите образование"
+                  isClearable
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="phoneNumber" className="form-label">Номер телефона</label>
+                <IMaskInput
+                  mask="+7(000) 000-00-00"
+                  className="form-control"
+                  id="phoneNumber"
+                  value={phoneNumber}
+                  onAccept={(value) => setPhoneNumber(value)}
+                  placeholder="+7(___) ___-__-__"
+                />
+              </div>
               <button type="submit" className="btn btn-primary">Отправить резюме</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Список резюме для кандидатов или всех резюме для модераторов */}
-      <div className="card mb-4">
-        <h2 className="card-header">{user?.isStaff ? 'Все резюме' : 'Ваши резюме'}</h2>
-        <div className="card-body">
-          {resumes.length === 0 ? (
-            <p>{user?.isStaff ? 'Резюме отсутствуют.' : 'У вас пока нет резюме.'}</p>
-          ) : (
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Кандидат</th>
-                  <th>Содержание</th>
-                  <th>Статус</th>
-                  <th>Дата создания</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resumes.map(resume => (
-                  <tr key={resume.id}>
-                    <td>{resume.candidate?.user.last_name} {resume.candidate?.user.first_name} {resume.candidate?.user.patronymic}</td>
-                    <td>{resume.content.substring(0, 50)}...</td>
-                    <td>{resume.status}</td>
-                    <td>{new Date(resume.created_at).toLocaleDateString()}</td>
-                    <td className="align-middle">
-                      {!user?.isStaff && (
-                        <div className="d-flex align-items-center gap-2">
-                          <button 
-                            className="btn btn-edit btn-square btn-sm"
-                            onClick={() => handleOpenEditModal(resume)}
-                            title="Редактировать резюме"
-                          >
-                            ✎
-                          </button>
-                          <button 
-                            className="btn btn-danger btn-square btn-sm"
-                            onClick={() => handleOpenDeleteModal(resume.id)}
-                            title="Удалить резюме"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )}
-                      {user?.isStaff && resume.status === 'PENDING' && (
-                        <>
-                          <button 
-                            className="btn btn-success btn-sm me-2"
-                            onClick={() => handleStatusUpdate(resume.id, 'ACCEPTED')}
-                          >
-                            Принять
-                          </button>
-                          <button 
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleStatusUpdate(resume.id, 'REJECTED')}
-                          >
-                            Отклонить
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {/* Модальное окно подтверждения удаления */}
+      
       <div className={`modal fade ${showDeleteModal ? 'show' : ''}`} style={{ display: showDeleteModal ? 'block' : 'none' }} tabIndex="-1">
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
@@ -254,10 +324,10 @@ const Dashboard = () => {
               Вы уверены, что хотите удалить это резюме? Это действие нельзя отменить.
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={handleCloseDeleteModal}>
+              <button type="button" className="btn btn-action btn-secondary" onClick={handleCloseDeleteModal}>
                 Отмена
               </button>
-              <button type="button" className="btn btn-danger" onClick={handleDeleteResume}>
+              <button type="button" className="btn btn-action btn-danger" onClick={handleDeleteResume}>
                 Удалить
               </button>
             </div>
@@ -266,7 +336,6 @@ const Dashboard = () => {
       </div>
       {showDeleteModal && <div className="modal-backdrop fade show"></div>}
 
-      {/* Модальное окно редактирования резюме */}
       <div className={`modal fade ${showEditModal ? 'show' : ''}`} style={{ display: showEditModal ? 'block' : 'none' }} tabIndex="-1">
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
@@ -287,12 +356,34 @@ const Dashboard = () => {
                     placeholder="Введите содержание резюме"
                   />
                 </div>
+                <div className="mb-3">
+                  <label htmlFor="editEducation" className="form-label">Образование</label>
+                  <Select
+                    id="editEducation"
+                    options={educationOptions}
+                    value={editEducation}
+                    onChange={setEditEducation}
+                    placeholder="Выберите образование"
+                    isClearable
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="editPhoneNumber" className="form-label">Номер телефона</label>
+                  <IMaskInput
+                    mask="+7(000) 000-00-00"
+                    className="form-control"
+                    id="editPhoneNumber"
+                    value={editPhoneNumber}
+                    onAccept={(value) => setEditPhoneNumber(value)}
+                    placeholder="+7(___) ___-__-__"
+                  />
+                </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={handleCloseEditModal}>
+                <button type="button" className="btn btn-action btn-secondary" onClick={handleCloseEditModal}>
                   Отмена
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="btn btn-action btn-primary">
                   Сохранить
                 </button>
               </div>
@@ -302,38 +393,74 @@ const Dashboard = () => {
       </div>
       {showEditModal && <div className="modal-backdrop fade show"></div>}
 
-      {/* Список кандидатов только для модераторов */}
-      {user?.isStaff && (
-        <div className="card mb-4">
-          <h2 className="card-header">Кандидаты</h2>
-          <div className="card-body">
-            {candidates.length === 0 ? (
-              <p>Кандидаты отсутствуют.</p>
-            ) : (
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Имя</th>
-                    <th>Email</th>
-                    <th>Образование</th>
-                    <th>Телефон</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {candidates.map(candidate => (
-                    <tr key={candidate.id}>
-                      <td>{candidate.user.last_name} {candidate.user.first_name} {candidate.user.patronymic}</td>
-                      <td>{candidate.user.email}</td>
-                      <td>{candidate.education || 'N/A'}</td>
-                      <td>{candidate.phone_number || 'N/A'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+      <div className={`modal fade ${showViewModal ? 'show' : ''}`} style={{ display: showViewModal ? 'block' : 'none' }} tabIndex="-1">
+        <div className="modal-dialog modal-lg">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Просмотр резюме</h5>
+              <button type="button" className="btn-close" onClick={handleCloseViewModal}></button>
+            </div>
+            <div className="modal-body">
+              {resumeToView && (
+                <>
+                  <h6>Кандидат: {resumeToView.candidate?.user.last_name} {resumeToView.candidate?.user.first_name} {resumeToView.candidate?.user.patronymic}</h6>
+                  <p><strong>Email:</strong> {resumeToView.candidate?.user.email}</p>
+                  <p><strong>Образование:</strong> {resumeToView.education_display || 'Не указано'}</p>
+                  <p><strong>Номер телефона:</strong> {resumeToView.phone_number || 'Не указан'}</p>
+                  <p><strong>Дата создания:</strong> {new Date(resumeToView.created_at).toLocaleString()}</p>
+                  <p><strong>Содержание:</strong></p>
+                  <div className="border p-3 bg-light" style={{ whiteSpace: 'pre-wrap' }}>
+                    {resumeToView.content}
+                  </div>
+                  {(resumeToView.status === 'ACCEPTED' || resumeToView.status === 'REJECTED') && resumeToView.comment && (
+                    <div className="mt-3">
+                      <p><strong>Комментарий модератора:</strong></p>
+                      <div className="border p-3 bg-light" style={{ whiteSpace: 'pre-wrap' }}>
+                        {resumeToView.comment}
+                      </div>
+                    </div>
+                  )}
+                  {user?.isStaff && resumeToView.status === 'PENDING' && (
+                    <div className="mt-3">
+                      <label htmlFor="statusComment" className="form-label">Комментарий к статусу</label>
+                      <textarea
+                        className="form-control"
+                        id="statusComment"
+                        rows="3"
+                        value={statusComment}
+                        onChange={(e) => setStatusComment(e.target.value)}
+                        placeholder="Введите комментарий (например, рекомендации по улучшению резюме)"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-action btn-secondary" onClick={handleCloseViewModal}>
+                Закрыть
+              </button>
+              {user?.isStaff && resumeToView?.status === 'PENDING' && (
+                <>
+                  <button 
+                    className="btn btn-action btn-success"
+                    onClick={() => handleStatusUpdate(resumeToView.id, 'ACCEPTED')}
+                  >
+                    Принять
+                  </button>
+                  <button 
+                    className="btn btn-action btn-danger"
+                    onClick={() => handleStatusUpdate(resumeToView.id, 'REJECTED')}
+                  >
+                    Отклонить
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+      {showViewModal && <div className="modal-backdrop fade show"></div>}
     </div>
   );
 };

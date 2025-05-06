@@ -9,7 +9,6 @@ class CustomUserManager(BaseUserManager):
         if not email:
             raise ValueError(_('Электронная почта обязательна'))
         email = self.normalize_email(email)
-        # Генерируем временный username, если не указан
         username = extra_fields.pop('username', email.split('@')[0] + str(uuid.uuid4())[:8])
         user = self.model(email=email, username=username, **extra_fields)
         user.set_password(password)
@@ -19,12 +18,10 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-
         if extra_fields.get('is_staff') is not True:
             raise ValueError(_('Суперпользователь должен иметь is_staff=True'))
         if extra_fields.get('is_superuser') is not True:
             raise ValueError(_('Суперпользователь должен иметь is_superuser=True'))
-
         return self.create_user(email, password, **extra_fields)
 
 # Перечисления для статусов и образования
@@ -75,10 +72,9 @@ class User(AbstractUser):
         return full_name if full_name else self.email
 
     def save(self, *args, **kwargs):
-        if not self.username:  # Автоматически генерируем username
+        if not self.username:
             self.username = self.email.split('@')[0] + str(uuid.uuid4())[:8]
         super().save(*args, **kwargs)
-        # Проверка: пользователь не может быть одновременно кандидатом и сотрудником
         if hasattr(self, 'candidate_profile') and hasattr(self, 'employee_profile'):
             raise ValueError(_('Пользователь не может быть одновременно кандидатом и сотрудником'))
 
@@ -86,8 +82,6 @@ class User(AbstractUser):
 class Candidate(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='candidate_profile')
     date_of_birth = models.DateField(_('Дата рождения'), null=True, blank=True)
-    education = models.CharField(_('Образование'), max_length=20, choices=EducationChoices.choices, blank=True)
-    phone_number = models.CharField(_('Номер телефона'), max_length=15, blank=True)
 
     class Meta:
         verbose_name = 'Кандидат'
@@ -114,8 +108,11 @@ class Employee(models.Model):
 class Resume(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='resumes')
     content = models.TextField(_('Содержание'))
+    education = models.CharField(_('Образование'), max_length=20, choices=EducationChoices.choices, blank=True)
+    phone_number = models.CharField(_('Номер телефона'), max_length=20, blank=True)
     created_at = models.DateTimeField(_('Дата создания'), auto_now_add=True)
     status = models.CharField(_('Статус'), max_length=20, choices=ResumeStatusChoices.choices, default=ResumeStatusChoices.PENDING)
+    comment = models.TextField(_('Комментарий'), max_length=500, blank=True, default='')
 
     class Meta:
         verbose_name = 'Резюме'
@@ -142,7 +139,7 @@ class Interview(models.Model):
 # Модель документа
 class Document(models.Model):
     interview = models.ForeignKey(Interview, on_delete=models.CASCADE, related_name='documents')
-    file_path = models.CharField(_('Путь к файлу'), max_length=255)  # Замените на FileField для реальной загрузки
+    file_path = models.CharField(_('Путь к файлу'), max_length=255)
     uploaded_at = models.DateTimeField(_('Дата загрузки'), auto_now_add=True)
     status = models.CharField(_('Статус'), max_length=20, choices=DocumentStatusChoices.choices, default=DocumentStatusChoices.UPLOADED)
 
@@ -166,3 +163,17 @@ class Feedback(models.Model):
 
     def __str__(self):
         return f"Обратная связь {self.id} для документа {self.document.id}"
+
+# Модель уведомления
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    message = models.TextField(_('Сообщение'))
+    created_at = models.DateTimeField(_('Дата создания'), auto_now_add=True)
+    is_read = models.BooleanField(_('Прочитано'), default=False)
+
+    class Meta:
+        verbose_name = 'Уведомление'
+        verbose_name_plural = 'Уведомления'
+
+    def __str__(self):
+        return f"Уведомление {self.id} для {self.user.email}"

@@ -9,12 +9,9 @@ const Register = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  // Обработчик отправки формы регистрации
   const onSubmit = async (data) => {
     try {
-      console.log('Отправка запроса на регистрацию:', data);
       const response = await axios.post('http://localhost:8000/api/register/', data);
-      console.log('Ответ регистрации:', response.data);
       toast.success('Регистрация успешна! Пожалуйста, войдите.');
       setError('');
       navigate('/login');
