@@ -10,7 +10,6 @@ const Login = () => {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // Обработчик отправки формы
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -20,7 +19,11 @@ const Login = () => {
       navigate('/dashboard');
     } catch (err) {
       console.error('Ошибка входа:', err.response?.data);
-      setError(err.response?.data?.detail || 'Неверный email или пароль');
+      setError(
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        'Ошибка авторизации. Проверьте email и пароль.'
+      );
     }
   };
 

@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from .models import User, Candidate, Resume
+from .models import User, Candidate, Resume, Employee
 from .serializers import CandidateSerializer, ResumeSerializer, UserSerializer, ResumeStatusUpdateSerializer, ResumeEditSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -38,16 +38,31 @@ class MeView(APIView):
 
     def get(self, request):
         user = request.user
+        response_data = {
+            'user': UserSerializer(user).data,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+        }
+
+        # Проверяем наличие профиля Candidate
         try:
             candidate = Candidate.objects.get(user=user)
-            serializer = CandidateSerializer(candidate)
-            return Response({
-                'user': serializer.data['user'],
-                'is_staff': user.is_staff,
-                'candidate': serializer.data
-            })
+            response_data['candidate'] = CandidateSerializer(candidate).data
         except Candidate.DoesNotExist:
-            return Response({'error': 'Candidate profile not found'}, status=status.HTTP_404_NOT_FOUND)
+            response_data['candidate'] = None
+
+        # Проверяем наличие профиля Employee
+        try:
+            employee = Employee.objects.get(user=user)
+            response_data['employee'] = {
+                'department': employee.department,
+                'position': employee.position,
+                'hire_date': employee.hire_date
+            }
+        except Employee.DoesNotExist:
+            response_data['employee'] = None
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 class ResumeCreateView(APIView):
     permission_classes = [IsAuthenticated]
