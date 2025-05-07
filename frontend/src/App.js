@@ -1,44 +1,52 @@
 import React from 'react';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './index.css';
 import { AuthProvider } from './components/AuthContext';
 import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import Home from './components/Home';
+import Sidebar from './components/Sidebar';
+import HomePage from './components/HomePage';
+import ResumePage from './components/ResumePage';
+import InterviewPage from './components/InterviewPage';
+import DocumentsPage from './components/DocumentsPage';
+import NotificationsPage from './components/NotificationsPage';
+import FinalStatusPage from './components/FinalStatusPage';
 import Login from './components/Login';
 import Register from './components/Register';
-import Dashboard from './components/Dashboard';
 
-// Главный компонент приложения
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="d-flex flex-column min-vh-100">
-          <Navbar />
-          <div className="flex-grow-1">
+        <div className="d-flex min-vh-100">
+          <Sidebar />
+          <div className="flex-grow-1 main-content">
+            <Navbar />
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/resume" element={<ResumePage />} />
+              <Route path="/interview" element={<InterviewPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/final-status" element={<FinalStatusPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
+            <ToastContainer
+              position="top-right"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="colored"
+            />
           </div>
-          <Footer />
-          <ToastContainer 
-            position="top-right" 
-            autoClose={3000} 
-            hideProgressBar={false} 
-            newestOnTop 
-            closeOnClick 
-            rtl={false} 
-            pauseOnFocusLoss 
-            draggable 
-            pauseOnHover 
-            theme="colored"
-          />
         </div>
       </Router>
     </AuthProvider>
