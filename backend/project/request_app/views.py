@@ -3,11 +3,13 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.db import models
 from .models import User, Candidate, Resume, Employee, Notification, Interview, Document
 from .serializers import (
     CandidateSerializer, ResumeSerializer, UserSerializer, 
     ResumeStatusUpdateSerializer, ResumeEditSerializer, 
-    NotificationSerializer, InterviewSerializer, DocumentSerializer
+    NotificationSerializer, InterviewSerializer, InterviewCreateSerializer, 
+    DocumentSerializer, EmployeeSerializer
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -192,6 +194,11 @@ class InterviewViewSet(viewsets.ModelViewSet):
             return Interview.objects.all()
         return Interview.objects.filter(candidate__user=self.request.user)
 
+    def get_serializer_class(self):
+        if self.action == 'create_interview':
+            return InterviewCreateSerializer
+        return InterviewSerializer
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def my(self, request):
         try:
@@ -201,6 +208,31 @@ class InterviewViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Candidate.DoesNotExist:
             return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def create_interview(self, request):
+        serializer = InterviewCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            interview = serializer.save()
+            # Создаем уведомление для кандидата
+            Notification.objects.create(
+                user=interview.candidate.user,
+                message=f'Назначено собеседование #{interview.id} на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}'
+            )
+            return Response(InterviewSerializer(interview).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def available_candidates(self, request):
+        candidates = Candidate.objects.filter(resumes__status='ACCEPTED').distinct()
+        serializer = CandidateSerializer(candidates, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def available_employees(self, request):
+        employees = Employee.objects.all()
+        serializer = EmployeeSerializer(employees, many=True)
+        return Response(serializer.data)
 
 class DocumentViewSet(viewsets.ModelViewSet):
     queryset = Document.objects.all()

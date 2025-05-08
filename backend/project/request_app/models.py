@@ -128,10 +128,12 @@ class Interview(models.Model):
     scheduled_at = models.DateTimeField(_('Запланировано на'))
     status = models.CharField(_('Статус'), max_length=20, choices=InterviewStatusChoices.choices, default=InterviewStatusChoices.SCHEDULED)
     result = models.CharField(_('Результат'), max_length=20, choices=InterviewResultChoices.choices, default=InterviewResultChoices.PENDING)
+    comment = models.TextField(blank=True)
 
     class Meta:
         verbose_name = 'Собеседование'
         verbose_name_plural = 'Собеседования'
+        ordering = ['scheduled_at']
 
     def __str__(self):
         return f"Собеседование {self.id} для {self.candidate.user.email}"

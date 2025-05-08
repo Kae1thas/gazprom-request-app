@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import User, Candidate, Resume, Notification, Interview, Document
+from django.db import models
+from .models import User, Candidate, Resume, Notification, Interview, Document, Employee
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
@@ -34,6 +35,13 @@ class CandidateSerializer(serializers.ModelSerializer):
             candidate = Candidate.objects.create(user=user, **validated_data)
             return candidate
         raise serializers.ValidationError(user_serializer.errors)
+
+class EmployeeSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Employee
+        fields = ['id', 'user', 'department', 'position', 'hire_date']
 
 class ResumeSerializer(serializers.ModelSerializer):
     education = serializers.ChoiceField(choices=[(choice, choice) for choice in ['SECONDARY', 'HIGHER', 'POSTGRADUATE']], required=False)
@@ -119,19 +127,42 @@ class ResumeEditSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Номер телефона должен содержать 12 символов (включая +7)")
         return value
 
-class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = ['id', 'message', 'created_at', 'is_read']
-
-
-class InterviewSerializer(serializers.ModelSerializer):
-    candidate = CandidateSerializer(read_only=True)
-    employee = serializers.StringRelatedField(read_only=True)
+class InterviewCreateSerializer(serializers.ModelSerializer):
+    candidate = serializers.PrimaryKeyRelatedField(queryset=Candidate.objects.all())
+    employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all())
 
     class Meta:
         model = Interview
-        fields = ['id', 'candidate', 'employee', 'scheduled_at', 'status', 'result']
+        fields = ['candidate', 'employee', 'scheduled_at']
+
+    def validate_scheduled_at(self, value):
+        from django.utils import timezone
+        if value < timezone.now():
+            raise serializers.ValidationError("Дата и время собеседования не могут быть в прошлом")
+        return value
+
+    def validate(self, data):
+        candidate = data['candidate']
+        employee = data['employee']
+        scheduled_at = data['scheduled_at']
+        # Проверка, есть ли у кандидата принятое резюме
+        if not Resume.objects.filter(candidate=candidate, status='ACCEPTED').exists():
+            raise serializers.ValidationError("Кандидат должен иметь хотя бы одно принятое резюме")
+        # Проверка конфликтов расписания
+        if Interview.objects.filter(
+            models.Q(candidate=candidate) | models.Q(employee=employee),
+            scheduled_at=scheduled_at
+        ).exists():
+            raise serializers.ValidationError("Кандидат или сотрудник уже заняты в это время")
+        return data
+
+class InterviewSerializer(serializers.ModelSerializer):
+    candidate = CandidateSerializer(read_only=True)
+    employee = EmployeeSerializer(read_only=True)
+
+    class Meta:
+        model = Interview
+        fields = ['id', 'candidate', 'employee', 'scheduled_at', 'status', 'result', 'comment']
 
 class DocumentSerializer(serializers.ModelSerializer):
     interview = InterviewSerializer(read_only=True)
