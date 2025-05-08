@@ -31,23 +31,36 @@ const ResumePage = () => {
   ];
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть личный кабинет');
       return;
     }
 
-    const resumeUrl = user?.isStaff ? 'http://localhost:8000/api/resumes/' : 'http://localhost:8000/api/my-resumes/';
-    axios.get(resumeUrl, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Токен авторизации отсутствует');
+      return;
+    }
+
+    const resumeUrl = user.isStaff ? 'http://localhost:8000/api/resumes/' : 'http://localhost:8000/api/resumes/my/';
+    axios
+      .get(resumeUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
       .then(response => setResumes(response.data))
-      .catch(() => setError('Не удалось загрузить резюме'));
+      .catch(err => {
+        const errorMsg = err.response?.data?.error || 'Не удалось загрузить резюме';
+        setError(errorMsg);
+      });
   }, [user]);
 
   const handleSubmitResume = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Токен авторизации отсутствует');
+      return;
+    }
     if (!resumeContent.trim()) {
       setError('Содержание резюме не может быть пустым');
       return;
@@ -60,7 +73,8 @@ const ResumePage = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:8000/api/resume/create/', 
+      const response = await axios.post(
+        'http://localhost:8000/api/resume/create/',
         {
           content: resumeContent,
           education: education?.value || '',
@@ -75,7 +89,7 @@ const ResumePage = () => {
       setError('');
       toast.success('Резюме успешно отправлено!');
     } catch (err) {
-      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || 'Ошибка при отправке резюме';
+      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.error || 'Ошибка при отправке резюме';
       toast.error(errorMsg);
       setError(errorMsg);
     }
@@ -139,7 +153,8 @@ const ResumePage = () => {
     }
 
     try {
-      const response = await axios.patch(`http://localhost:8000/api/resume/${resumeToEdit}/edit/`, 
+      const response = await axios.patch(
+        `http://localhost:8000/api/resume/${resumeToEdit}/edit/`,
         {
           content: editContent.trim(),
           education: editEducation?.value || '',
@@ -147,7 +162,7 @@ const ResumePage = () => {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setResumes(resumes.map(resume => 
+      setResumes(resumes.map(resume =>
         resume.id === resumeToEdit ? response.data : resume
       ));
       toast.success('Резюме успешно обновлено!');
@@ -174,11 +189,12 @@ const ResumePage = () => {
   const handleStatusUpdate = async (resumeId, newStatus) => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.patch(`http://localhost:8000/api/resume/${resumeId}/status/`, 
+      const response = await axios.patch(
+        `http://localhost:8000/api/resume/${resumeId}/status/`,
         { status: newStatus, comment: statusComment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setResumes(resumes.map(resume => 
+      setResumes(resumes.map(resume =>
         resume.id === resumeId ? { ...resume, status: response.data.status, comment: response.data.comment } : resume
       ));
       toast.success(`Статус резюме обновлён: ${newStatus}`);
@@ -228,7 +244,7 @@ const ResumePage = () => {
                     <td>{new Date(resume.created_at).toLocaleDateString()}</td>
                     <td className="align-middle">
                       <div className="d-flex align-items-center gap-2">
-                      <button 
+                        <button
                           className="btn btn-square btn-primary"
                           onClick={() => handleOpenViewModal(resume)}
                           title="Просмотреть резюме"
@@ -239,14 +255,14 @@ const ResumePage = () => {
                           <>
                             {resume.status !== 'ACCEPTED' && (
                               <>
-                                <button 
+                                <button
                                   className="btn btn-square btn-edit"
                                   onClick={() => handleOpenEditModal(resume)}
                                   title="Редактировать резюме"
                                 >
                                   <FaEdit />
                                 </button>
-                                <button 
+                                <button
                                   className="btn btn-square btn-danger"
                                   onClick={() => handleOpenDeleteModal(resume.id)}
                                   title="Удалить резюме"
@@ -257,7 +273,6 @@ const ResumePage = () => {
                             )}
                           </>
                         )}
-
                       </div>
                     </td>
                   </tr>
@@ -290,7 +305,7 @@ const ResumePage = () => {
                   id="education"
                   options={educationOptions}
                   value={education}
-                  onChange={setEducation}
+                  onChange = {setEducation}
                   placeholder="Выберите образование"
                   isClearable
                 />
@@ -312,7 +327,6 @@ const ResumePage = () => {
         </div>
       )}
 
-      
       <div className={`modal fade ${showDeleteModal ? 'show' : ''}`} style={{ display: showDeleteModal ? 'block' : 'none' }} tabIndex="-1">
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
@@ -442,13 +456,13 @@ const ResumePage = () => {
               </button>
               {user?.isStaff && resumeToView?.status === 'PENDING' && (
                 <>
-                  <button 
+                  <button
                     className="btn btn-action btn-success"
                     onClick={() => handleStatusUpdate(resumeToView.id, 'ACCEPTED')}
                   >
                     Принять
                   </button>
-                  <button 
+                  <button
                     className="btn btn-action btn-danger"
                     onClick={() => handleStatusUpdate(resumeToView.id, 'REJECTED')}
                   >

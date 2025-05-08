@@ -18,7 +18,6 @@ const DocumentsPage = () => {
       return;
     }
 
-    // Mock API call (заменить на реальный эндпоинт)
     const token = localStorage.getItem('token');
     axios
       .get('http://localhost:8000/api/documents/', {
@@ -37,7 +36,7 @@ const DocumentsPage = () => {
   const handleUpload = async (documentId, file) => {
     const token = localStorage.getItem('token');
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file_path', file);
     try {
       await axios.post(
         `http://localhost:8000/api/documents/${documentId}/upload/`,
@@ -45,14 +44,17 @@ const DocumentsPage = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success('Документ успешно загружен!');
-      // Обновить список документов
+      const response = await axios.get('http://localhost:8000/api/documents/', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setDocuments(response.data);
     } catch (err) {
-      toast.error('Ошибка при загрузке документа');
+      toast.error(err.response?.data?.file_path || 'Ошибка при загрузке документа');
     }
   };
 
-  const handleDownload = (filePath) => {
-    window.open(filePath, '_blank');
+  const handleDownload = (fileUrl) => {
+    window.open(fileUrl, '_blank');
   };
 
   if (loading) return <div className="container mt-5">Загрузка...</div>;
@@ -68,7 +70,15 @@ const DocumentsPage = () => {
           documents.map((doc) => (
             <div className="col-md-4 mb-4" key={doc.id}>
               <Card className="p-3">
-                <h5>{doc.name}</h5>
+                <h5>Документ #{doc.id}</h5>
+                <p>
+                  <strong>Собеседование:</strong>{' '}
+                  {doc.interview
+                    ? `Собеседование #${doc.interview.id} (${new Date(
+                        doc.interview.scheduled_at
+                      ).toLocaleDateString()})`
+                    : 'Не указано'}
+                </p>
                 <p>
                   <strong>Статус:</strong>{' '}
                   <span
@@ -99,29 +109,23 @@ const DocumentsPage = () => {
                     </Button>
                   )}
                   {doc.status === 'REJECTED' && (
-                    <Button
-                      variant="contained"
-                      startIcon={<Refresh />}
-                      component="label"
-                    >
+                    <Button variant="contained" startIcon={<Refresh />} component="label">
                       Перезагрузить
                       <input
                         type="file"
                         hidden
+                        accept=".pdf,.doc,.docx"
                         onChange={(e) => handleUpload(doc.id, e.target.files[0])}
                       />
                     </Button>
                   )}
                   {!doc.file_path && (
-                    <Button
-                      variant="contained"
-                      startIcon={<CloudUpload />}
-                      component="label"
-                    >
+                    <Button variant="contained" startIcon={<CloudUpload />} component="label">
                       Загрузить
                       <input
                         type="file"
                         hidden
+                        accept=".pdf,.doc,.docx"
                         onChange={(e) => handleUpload(doc.id, e.target.files[0])}
                       />
                     </Button>

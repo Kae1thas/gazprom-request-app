@@ -1,9 +1,14 @@
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from .models import User, Candidate, Resume, Employee, Notification
-from .serializers import CandidateSerializer, ResumeSerializer, UserSerializer, ResumeStatusUpdateSerializer, ResumeEditSerializer, NotificationSerializer
+from .models import User, Candidate, Resume, Employee, Notification, Interview, Document
+from .serializers import (
+    CandidateSerializer, ResumeSerializer, UserSerializer, 
+    ResumeStatusUpdateSerializer, ResumeEditSerializer, 
+    NotificationSerializer, InterviewSerializer, DocumentSerializer
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 
 class CandidateViewSet(viewsets.ModelViewSet):
@@ -14,7 +19,22 @@ class CandidateViewSet(viewsets.ModelViewSet):
 class ResumeViewSet(viewsets.ModelViewSet):
     queryset = Resume.objects.all()
     serializer_class = ResumeSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Resume.objects.all()
+        return Resume.objects.filter(candidate__user=self.request.user)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my(self, request):
+        try:
+            candidate = Candidate.objects.get(user=request.user)
+            resumes = Resume.objects.filter(candidate=candidate)
+            serializer = ResumeSerializer(resumes, many=True)
+            return Response(serializer.data)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
 
 class RegisterView(APIView):
     def post(self, request):
@@ -104,18 +124,6 @@ class ResumeStatusUpdateView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class MyResumesView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        try:
-            candidate = Candidate.objects.get(user=request.user)
-            resumes = Resume.objects.filter(candidate=candidate)
-            serializer = ResumeSerializer(resumes, many=True)
-            return Response(serializer.data)
-        except Candidate.DoesNotExist:
-            return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
-
 class ResumeDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -173,3 +181,70 @@ class NotificationView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class InterviewViewSet(viewsets.ModelViewSet):
+    queryset = Interview.objects.all()
+    serializer_class = InterviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Interview.objects.all()
+        return Interview.objects.filter(candidate__user=self.request.user)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my(self, request):
+        try:
+            candidate = Candidate.objects.get(user=request.user)
+            interviews = Interview.objects.filter(candidate=candidate)
+            serializer = InterviewSerializer(interviews, many=True)
+            return Response(serializer.data)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+class DocumentViewSet(viewsets.ModelViewSet):
+    queryset = Document.objects.all()
+    serializer_class = DocumentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Document.objects.all()
+        return Document.objects.filter(interview__candidate__user=self.request.user)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def upload(self, request, pk=None):
+        document = self.get_object()
+        serializer = DocumentSerializer(document, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            Notification.objects.create(
+                user=document.interview.candidate.user,
+                message=f'Ваш документ #{document.id} успешно загружен.'
+            )
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def status(self, request, pk=None):
+        document = self.get_object()
+        status = request.data.get('status')
+        comment = request.data.get('comment', '')
+        if status not in ['ACCEPTED', 'REJECTED']:
+            return Response({'error': 'Недопустимый статус'}, status=status.HTTP_400_BAD_REQUEST)
+        document.status = status
+        document.comment = comment
+        document.save()
+        Notification.objects.create(
+            user=document.interview.candidate.user,
+            message=f'Статус вашего документа #{document.id} изменён на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}'
+        )
+        return Response(DocumentSerializer(document).data)
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)

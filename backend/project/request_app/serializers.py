@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Candidate, Resume, Notification
+from .models import User, Candidate, Resume, Notification, Interview, Document
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
@@ -123,3 +123,34 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'message', 'created_at', 'is_read']
+
+
+class InterviewSerializer(serializers.ModelSerializer):
+    candidate = CandidateSerializer(read_only=True)
+    employee = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Interview
+        fields = ['id', 'candidate', 'employee', 'scheduled_at', 'status', 'result']
+
+class DocumentSerializer(serializers.ModelSerializer):
+    interview = InterviewSerializer(read_only=True)
+    file_path = serializers.FileField(write_only=True, required=False)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = Document
+        fields = ['id', 'interview', 'file_path', 'uploaded_at', 'status', 'status_display', 'comment']
+
+    def validate_file_path(self, value):
+        if value:
+            if not value.name.endswith(('.pdf', '.doc', '.docx')):
+                raise serializers.ValidationError('Файл должен быть в формате PDF, DOC или DOCX')
+            if value.size > 5 * 1024 * 1024:  # 5MB
+                raise serializers.ValidationError('Размер файла не должен превышать 5 МБ')
+        return value
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'user', 'message', 'is_read', 'created_at']
