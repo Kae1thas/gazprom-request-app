@@ -168,10 +168,23 @@ class DocumentSerializer(serializers.ModelSerializer):
     interview = InterviewSerializer(read_only=True)
     file_path = serializers.FileField(write_only=True, required=False)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    comment = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
     class Meta:
         model = Document
         fields = ['id', 'interview', 'file_path', 'uploaded_at', 'status', 'status_display', 'comment']
+
+    def validate(self, data):
+        interview = self.context.get('interview')
+        if not interview:
+            raise serializers.ValidationError("Собеседование не указано")
+        if interview.result != 'SUCCESS':
+            raise serializers.ValidationError("Документы можно загружать только после успешного собеседования")
+        # Проверка количества документов
+        existing_docs = Document.objects.filter(interview=interview).count()
+        if existing_docs >= 10 and not self.instance:
+            raise serializers.ValidationError("Максимум 10 документов для одного собеседования")
+        return data
 
     def validate_file_path(self, value):
         if value:

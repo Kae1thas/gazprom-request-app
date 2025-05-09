@@ -13,6 +13,7 @@ import InterviewPage from './components/InterviewPage';
 import DocumentsPage from './components/DocumentsPage';
 import NotificationsPage from './components/NotificationsPage';
 import FinalStatusPage from './components/FinalStatusPage';
+import ModeratorDocumentsPage from './components/ModeratorDocumentsPage';
 import Login from './components/Login';
 import Register from './components/Register';
 
@@ -25,10 +26,11 @@ function App() {
           <div className="flex-grow-1 main-content">
             <Navbar />
             <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/home" element={<HomePage />} />
               <Route path="/resume" element={<ResumePage />} />
               <Route path="/interview" element={<InterviewPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/documents/moderator" element={<ModeratorDocumentsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/final-status" element={<FinalStatusPage />} />
               <Route path="/login" element={<Login />} />

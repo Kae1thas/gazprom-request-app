@@ -16,7 +16,7 @@ const Login = () => {
       await login(email, password);
       toast.success('Вход выполнен успешно!');
       setError('');
-      navigate('/dashboard');
+      navigate('/home');
     } catch (err) {
       console.error('Ошибка входа:', err.response?.data);
       setError(

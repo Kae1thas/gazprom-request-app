@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.decorators import action
+from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db import models
@@ -244,6 +245,25 @@ class DocumentViewSet(viewsets.ModelViewSet):
             return Document.objects.all()
         return Document.objects.filter(interview__candidate__user=self.request.user)
 
+    def create(self, request):
+        try:
+            candidate = Candidate.objects.get(user=request.user)
+            interview = Interview.objects.filter(candidate=candidate, result='SUCCESS').first()
+            if not interview:
+                return Response({'error': 'У вас нет успешного собеседования для загрузки документов'}, status=status.HTTP_403_FORBIDDEN)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = DocumentSerializer(data=request.data, context={'interview': interview})
+        if serializer.is_valid():
+            serializer.save(interview=interview)
+            Notification.objects.create(
+                user=interview.candidate.user,
+                message=f'Ваш документ #{serializer.data["id"]} успешно загружен.'
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def upload(self, request, pk=None):
         document = self.get_object()
@@ -272,6 +292,32 @@ class DocumentViewSet(viewsets.ModelViewSet):
             message=f'Статус вашего документа #{document.id} изменён на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}'
         )
         return Response(DocumentSerializer(document).data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def confirm_hire(self, request):
+        interview_id = request.data.get('interview_id')
+        try:
+            interview = Interview.objects.get(id=interview_id, result='SUCCESS')
+            documents = Document.objects.filter(interview=interview)
+            if documents.count() != 10:
+                return Response({'error': 'Необходимо загрузить ровно 10 документов'}, status=status.HTTP_400_BAD_REQUEST)
+            if not all(doc.status == 'ACCEPTED' for doc in documents):
+                return Response({'error': 'Все документы должны быть приняты'}, status=status.HTTP_400_BAD_REQUEST)
+            # Обновляем статус кандидата (например, создаем Employee)
+            candidate = interview.candidate
+            Employee.objects.create(
+                user=candidate.user,
+                department='Не указано',
+                position='Не указано',
+                hire_date=timezone.now().date()
+            )
+            Notification.objects.create(
+                user=candidate.user,
+                message='Поздравляем! Вы приняты на работу.'
+            )
+            return Response({'message': 'Кандидат успешно принят на работу'}, status=status.HTTP_200_OK)
+        except Interview.DoesNotExist:
+            return Response({'error': 'Собеседование не найдено'}, status=status.HTTP_404_NOT_FOUND)
 
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()

@@ -144,6 +144,7 @@ class Document(models.Model):
     file_path = models.CharField(_('Путь к файлу'), max_length=255)
     uploaded_at = models.DateTimeField(_('Дата загрузки'), auto_now_add=True)
     status = models.CharField(_('Статус'), max_length=20, choices=DocumentStatusChoices.choices, default=DocumentStatusChoices.UPLOADED)
+    comment = models.TextField(_('Комментарий'), max_length=500, blank=True, default='')
 
     class Meta:
         verbose_name = 'Документ'

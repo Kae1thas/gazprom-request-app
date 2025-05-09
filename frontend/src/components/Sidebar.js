@@ -1,21 +1,33 @@
 import React, { useState, useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Offcanvas } from 'react-bootstrap';
 import { AuthContext } from './AuthContext';
-import { Home, Description, CalendarToday, AttachFile, Notifications, CheckCircle } from '@mui/icons-material';
+import { Home, Description, CalendarToday, AttachFile, Notifications, CheckCircle, Assignment } from '@mui/icons-material';
+import '../index.css';
 
 const Sidebar = () => {
-  const { user } = useContext(AuthContext);
+  const { user, hasSuccessfulInterview } = useContext(AuthContext);
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const menuItems = [
+  const candidateMenuItems = [
     { path: '/', label: 'Главная', icon: <Home /> },
     { path: '/resume', label: 'Моё резюме', icon: <Description /> },
     { path: '/interview', label: 'Собеседование', icon: <CalendarToday /> },
-    { path: '/documents', label: 'Документы', icon: <AttachFile /> },
+    ...(hasSuccessfulInterview ? [{ path: '/documents', label: 'Документы', icon: <AttachFile /> }] : []),
     { path: '/notifications', label: 'Уведомления', icon: <Notifications /> },
     { path: '/final-status', label: 'Финальный статус', icon: <CheckCircle /> },
   ];
+
+  const moderatorMenuItems = [
+    { path: '/', label: 'Главная', icon: <Home /> },
+    { path: '/resumes', label: 'Резюме', icon: <Description /> },
+    { path: '/interviews', label: 'Собеседования', icon: <CalendarToday /> },
+    { path: '/documents/moderator', label: 'Документы', icon: <Assignment /> },
+    { path: '/notifications', label: 'Уведомления', icon: <Notifications /> },
+  ];
+
+  const menuItems = user?.isStaff ? moderatorMenuItems : candidateMenuItems;
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -49,12 +61,11 @@ const Sidebar = () => {
         <button className="btn btn-primary hamburger" onClick={toggleSidebar}>
           ☰
         </button>
-        <div className={`offcanvas offcanvas-start ${isOpen ? 'show' : ''}`} tabIndex="-1">
-          <div className="offcanvas-header">
-            <h5 className="offcanvas-title">Газпром Карьера</h5>
-            <button className="btn-close" onClick={toggleSidebar}></button>
-          </div>
-          <div className="offcanvas-body">
+        <Offcanvas show={isOpen} onHide={toggleSidebar} className="offcanvas">
+          <Offcanvas.Header closeButton>
+            <Offcanvas.Title>Газпром Карьера</Offcanvas.Title>
+          </Offcanvas.Header>
+          <Offcanvas.Body>
             <ul className="sidebar-menu">
               {menuItems.map((item) => (
                 <li key={item.path}>
@@ -70,8 +81,8 @@ const Sidebar = () => {
                 </li>
               ))}
             </ul>
-          </div>
-        </div>
+          </Offcanvas.Body>
+        </Offcanvas>
       </div>
     </>
   );

@@ -6,6 +6,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hasSuccessfulInterview, setHasSuccessfulInterview] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -23,6 +24,16 @@ export const AuthProvider = ({ children }) => {
             candidate: response.data.candidate,
             employee: response.data.employee
           });
+          // Проверяем, есть ли успешное собеседование
+          if (response.data.candidate) {
+            axios.get('http://localhost:8000/api/interviews/my/', {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+              .then(interviewResponse => {
+                setHasSuccessfulInterview(interviewResponse.data.some(i => i.result === 'SUCCESS'));
+              })
+              .catch(() => setHasSuccessfulInterview(false));
+          }
         })
         .catch(err => {
           console.error('Ошибка при загрузке профиля:', err.response?.data);
@@ -51,6 +62,13 @@ export const AuthProvider = ({ children }) => {
         candidate: userResponse.data.candidate,
         employee: userResponse.data.employee
       });
+      // Проверяем успешное собеседование
+      if (userResponse.data.candidate) {
+        const interviewResponse = await axios.get('http://localhost:8000/api/interviews/my/', {
+          headers: { Authorization: `Bearer ${response.data.access}` }
+        });
+        setHasSuccessfulInterview(interviewResponse.data.some(i => i.result === 'SUCCESS'));
+      }
       return true;
     } catch (err) {
       throw err;
@@ -60,10 +78,11 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
+    setHasSuccessfulInterview(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, hasSuccessfulInterview }}>
       {children}
     </AuthContext.Provider>
   );

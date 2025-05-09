@@ -7,6 +7,7 @@ const FinalStatusPage = () => {
   const { user } = useContext(AuthContext);
   const [resumes, setResumes] = useState([]);
   const [interviews, setInterviews] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -32,8 +33,12 @@ const FinalStatusPage = () => {
         const interviewResponse = await axios.get('http://localhost:8000/api/interviews/my/', {
           headers: { Authorization: `Bearer ${token}` },
         });
+        const documentResponse = await axios.get('http://localhost:8000/api/documents/', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setResumes(resumeResponse.data);
         setInterviews(interviewResponse.data);
+        setDocuments(documentResponse.data);
         setLoading(false);
       } catch (err) {
         setError(err.response?.data?.error || 'Не удалось загрузить данные');
@@ -46,12 +51,26 @@ const FinalStatusPage = () => {
   const getFinalStatus = () => {
     const acceptedResume = resumes.find((r) => r.status === 'ACCEPTED');
     const successfulInterview = interviews.find((i) => i.result === 'SUCCESS');
+    const allDocumentsAccepted =
+      documents.length === 10 && documents.every((d) => d.status === 'ACCEPTED');
 
-    if (successfulInterview) {
+    if (user.employee) {
       return {
         status: 'Принят',
-        message: 'Поздравляем! Вы успешно прошли собеседование и приняты на работу.',
+        message: 'Поздравляем! Вы приняты на работу.',
         className: 'bg-success',
+      };
+    } else if (allDocumentsAccepted) {
+      return {
+        status: 'Ожидание подтверждения',
+        message: 'Все документы приняты, ожидайте подтверждения найма.',
+        className: 'bg-warning',
+      };
+    } else if (successfulInterview) {
+      return {
+        status: 'Ожидание документов',
+        message: 'Вы успешно прошли собеседование. Загрузите необходимые документы.',
+        className: 'bg-warning',
       };
     } else if (acceptedResume) {
       return {
@@ -110,6 +129,19 @@ const FinalStatusPage = () => {
                     : interview.result === 'FAILURE'
                     ? 'Неуспешно'
                     : 'Ожидает'}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {documents.length > 0 && (
+          <>
+            <h6 className="mt-3">Ваши документы:</h6>
+            <ul>
+              {documents.map((doc) => (
+                <li key={doc.id}>
+                  Документ #{doc.id} - Статус: {doc.status_display}
+                  {doc.comment && <span> (Комментарий: {doc.comment})</span>}
                 </li>
               ))}
             </ul>

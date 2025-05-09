@@ -6,7 +6,7 @@ import { Button, Card } from '@mui/material';
 import { CloudUpload, Download, Refresh } from '@mui/icons-material';
 
 const DocumentsPage = () => {
-  const { user } = useContext(AuthContext);
+  const { user, hasSuccessfulInterview } = useContext(AuthContext);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,6 +14,11 @@ const DocumentsPage = () => {
   useEffect(() => {
     if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть документы');
+      setLoading(false);
+      return;
+    }
+    if (!hasSuccessfulInterview) {
+      setError('У вас нет успешного собеседования для загрузки документов');
       setLoading(false);
       return;
     }
@@ -31,23 +36,20 @@ const DocumentsPage = () => {
         setError('Не удалось загрузить документы');
         setLoading(false);
       });
-  }, [user]);
+  }, [user, hasSuccessfulInterview]);
 
-  const handleUpload = async (documentId, file) => {
+  const handleUpload = async (slot, file) => {
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file_path', file);
     try {
-      await axios.post(
-        `http://localhost:8000/api/documents/${documentId}/upload/`,
+      const response = await axios.post(
+        'http://localhost:8000/api/documents/',
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success('Документ успешно загружен!');
-      const response = await axios.get('http://localhost:8000/api/documents/', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setDocuments(response.data);
+      toast.success(`Документ в слоте ${slot} успешно загружен!`);
+      setDocuments((prev) => [...prev, response.data]);
     } catch (err) {
       toast.error(err.response?.data?.file_path || 'Ошибка при загрузке документа');
     }
@@ -60,82 +62,78 @@ const DocumentsPage = () => {
   if (loading) return <div className="container mt-5">Загрузка...</div>;
   if (error) return <div className="container mt-5 alert alert-danger">{error}</div>;
 
+  const documentSlots = Array.from({ length: 10 }, (_, index) => {
+    const slotNumber = index + 1;
+    const doc = documents.find((d, i) => i === index);
+    return (
+      <div className="col-md-4 mb-4" key={slotNumber}>
+        <Card className="p-3">
+          <h5>Слот #{slotNumber}</h5>
+          {doc ? (
+            <>
+              <p>
+                <strong>Статус:</strong>{' '}
+                <span
+                  className={`badge ${
+                    doc.status === 'ACCEPTED'
+                      ? 'bg-success'
+                      : doc.status === 'REJECTED'
+                      ? 'bg-danger'
+                      : 'bg-warning'
+                  }`}
+                >
+                  {doc.status_display}
+                </span>
+              </p>
+              {doc.comment && (
+                <p>
+                  <strong>Комментарий:</strong> {doc.comment}
+                </p>
+              )}
+              <div className="d-flex gap-2">
+                {doc.status === 'ACCEPTED' && doc.file_path && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Download />}
+                    onClick={() => handleDownload(doc.file_path)}
+                  >
+                    Скачать
+                  </Button>
+                )}
+                {doc.status === 'REJECTED' && (
+                  <Button variant="contained" startIcon={<Refresh />} component="label">
+                    Перезагрузить
+                    <input
+                      type="file"
+                      hidden
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
+                    />
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <Button variant="contained" startIcon={<CloudUpload />} component="label">
+              Загрузить
+              <input
+                type="file"
+                hidden
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
+              />
+            </Button>
+          )}
+        </Card>
+      </div>
+    );
+  });
+
   return (
     <div className="container mt-5">
       <h1 className="mb-4">Документы</h1>
-      <div className="row">
-        {documents.length === 0 ? (
-          <p>Документы отсутствуют.</p>
-        ) : (
-          documents.map((doc) => (
-            <div className="col-md-4 mb-4" key={doc.id}>
-              <Card className="p-3">
-                <h5>Документ #{doc.id}</h5>
-                <p>
-                  <strong>Собеседование:</strong>{' '}
-                  {doc.interview
-                    ? `Собеседование #${doc.interview.id} (${new Date(
-                        doc.interview.scheduled_at
-                      ).toLocaleDateString()})`
-                    : 'Не указано'}
-                </p>
-                <p>
-                  <strong>Статус:</strong>{' '}
-                  <span
-                    className={`badge ${
-                      doc.status === 'ACCEPTED'
-                        ? 'bg-success'
-                        : doc.status === 'REJECTED'
-                        ? 'bg-danger'
-                        : 'bg-warning'
-                    }`}
-                  >
-                    {doc.status_display}
-                  </span>
-                </p>
-                {doc.comment && (
-                  <p>
-                    <strong>Комментарий:</strong> {doc.comment}
-                  </p>
-                )}
-                <div className="d-flex gap-2">
-                  {doc.status === 'ACCEPTED' && doc.file_path && (
-                    <Button
-                      variant="contained"
-                      startIcon={<Download />}
-                      onClick={() => handleDownload(doc.file_path)}
-                    >
-                      Скачать
-                    </Button>
-                  )}
-                  {doc.status === 'REJECTED' && (
-                    <Button variant="contained" startIcon={<Refresh />} component="label">
-                      Перезагрузить
-                      <input
-                        type="file"
-                        hidden
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => handleUpload(doc.id, e.target.files[0])}
-                      />
-                    </Button>
-                  )}
-                  {!doc.file_path && (
-                    <Button variant="contained" startIcon={<CloudUpload />} component="label">
-                      Загрузить
-                      <input
-                        type="file"
-                        hidden
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => handleUpload(doc.id, e.target.files[0])}
-                      />
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            </div>
-          ))
-        )}
-      </div>
+      <p>Загрузите до 10 документов для завершения процесса найма.</p>
+      <div className="row">{documentSlots}</div>
     </div>
   );
 };

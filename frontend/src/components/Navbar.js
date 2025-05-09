@@ -28,7 +28,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/home');
   };
 
   const markAsRead = async (notificationId) => {
@@ -55,7 +55,7 @@ const Navbar = () => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark">
       <div className="container-fluid">
-        <Link className="navbar-brand" to="/">
+        <Link className="navbar-brand" to="/home">
           Газпром Карьера
         </Link>
         <div className="ms-auto d-flex align-items-center">
