@@ -11,7 +11,7 @@ const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const candidateMenuItems = [
-    { path: '/', label: 'Главная', icon: <Home /> },
+    { path: '/home', label: 'Главная', icon: <Home /> },
     { path: '/resume', label: 'Моё резюме', icon: <Description /> },
     { path: '/interview', label: 'Собеседование', icon: <CalendarToday /> },
     ...(hasSuccessfulInterview ? [{ path: '/documents', label: 'Документы', icon: <AttachFile /> }] : []),
@@ -20,7 +20,7 @@ const Sidebar = () => {
   ];
 
   const moderatorMenuItems = [
-    { path: '/', label: 'Главная', icon: <Home /> },
+    { path: '/home', label: 'Главная', icon: <Home /> },
     { path: '/resumes', label: 'Резюме', icon: <Description /> },
     { path: '/interviews', label: 'Собеседования', icon: <CalendarToday /> },
     { path: '/documents/moderator', label: 'Документы', icon: <Assignment /> },
@@ -38,7 +38,7 @@ const Sidebar = () => {
       {/* Desktop Sidebar */}
       <div className="sidebar d-none d-md-block">
         <div className="sidebar-header">
-          <h4 className="text-white p-3">Газпром Карьера</h4>
+          <h4 className="text-white p-3"> </h4>
         </div>
         <ul className="sidebar-menu">
           {menuItems.map((item) => (
@@ -62,9 +62,6 @@ const Sidebar = () => {
           ☰
         </button>
         <Offcanvas show={isOpen} onHide={toggleSidebar} className="offcanvas">
-          <Offcanvas.Header closeButton>
-            <Offcanvas.Title>Газпром Карьера</Offcanvas.Title>
-          </Offcanvas.Header>
           <Offcanvas.Body>
             <ul className="sidebar-menu">
               {menuItems.map((item) => (

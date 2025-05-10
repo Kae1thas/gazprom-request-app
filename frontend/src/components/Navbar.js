@@ -53,7 +53,7 @@ const Navbar = () => {
   const toggleNotifications = () => setShowNotifications(!showNotifications);
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark">
+    <nav className={`navbar navbar-expand-lg navbar-dark ${!user ? 'no-sidebar' : ''}`}>
       <div className="container-fluid">
         <Link className="navbar-brand" to="/home">
           Газпром Карьера
