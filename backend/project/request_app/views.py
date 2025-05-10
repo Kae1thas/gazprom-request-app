@@ -44,7 +44,7 @@ class RegisterView(APIView):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            Candidate.objects.create(user=user)
+            Candidate.objects.create(user=user, has_successful_interview=False)
             refresh = RefreshToken.for_user(user)
             return Response({
                 'user': UserSerializer(user).data,

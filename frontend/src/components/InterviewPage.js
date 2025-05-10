@@ -2,14 +2,14 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
-import { Button, Card } from '@mui/material';
+import { Navigate } from 'react-router-dom'; // Добавлено для перенаправления
+import { Button } from '@mui/material';
 import { FaEye } from 'react-icons/fa';
 import Select from 'react-select';
 
 const InterviewPage = () => {
-  const { user } = useContext(AuthContext);
+  const { user, loading } = useContext(AuthContext); // Используем loading из AuthContext
   const [interviews, setInterviews] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showViewModal, setShowViewModal] = useState(false);
   const [interviewToView, setInterviewToView] = useState(null);
@@ -22,16 +22,18 @@ const InterviewPage = () => {
   const [scheduledAt, setScheduledAt] = useState('');
 
   useEffect(() => {
+    // Если данные еще загружаются, ничего не делаем
+    if (loading) return;
+
+    // Если пользователь не авторизован, устанавливаем ошибку (для отладки, позже перенаправим)
     if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть собеседования');
-      setLoading(false);
       return;
     }
 
     const token = localStorage.getItem('token');
     if (!token) {
       setError('Токен авторизации отсутствует');
-      setLoading(false);
       return;
     }
 
@@ -61,15 +63,13 @@ const InterviewPage = () => {
             label: `${e.user.last_name} ${e.user.first_name} ${e.user.patronymic} (${e.position})`
           })));
         }
-        setLoading(false);
       } catch (err) {
         const errorMsg = err.response?.data?.error || 'Не удалось загрузить данные';
         setError(errorMsg);
-        setLoading(false);
       }
     };
     fetchData();
-  }, [user]);
+  }, [user, loading]); // Добавляем loading в зависимости
 
   const handleOpenViewModal = (interview) => {
     setInterviewToView(interview);
@@ -112,7 +112,7 @@ const InterviewPage = () => {
       employee: selectedEmployee.value,
       scheduled_at: new Date(scheduledAt).toISOString(),
     };
-    console.log('Sending payload:', payload); // Логирование отправляемых данных
+    console.log('Sending payload:', payload);
 
     try {
       const response = await axios.post(
@@ -124,7 +124,7 @@ const InterviewPage = () => {
       toast.success('Собеседование успешно назначено!');
       handleCloseCreateModal();
     } catch (err) {
-      console.error('Error response:', err.response); // Логирование ответа сервера
+      console.error('Error response:', err.response);
       const errorMsg = (
         err.response?.data?.non_field_errors ||
         err.response?.data?.scheduled_at ||
@@ -172,16 +172,29 @@ const InterviewPage = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  if (loading) return <div className="container mt-5">Загрузка...</div>;
-  if (error) return <div className="container mt-5 alert alert-danger">{error}</div>;
+  // Если данные загружаются, показываем спиннер
+  if (loading) {
+    return (
+      <div className="container mt-5 text-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Загрузка...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Если пользователь нет авторизован, перенаправляем на страницу логина
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
 
   return (
     <div className="container mt-5">
       <h1 className="mb-4">Собеседования</h1>
       <div className="card mb-4">
-        <h2 className="card-header">{user?.isStaff ? 'Все собеседования' : 'Ваши собеседования'}</h2>
+        <h2 className="card-header">{user.isStaff ? 'Все собеседования' : 'Ваши собеседования'}</h2>
         <div className="card-body">
-          {user?.isStaff && (
+          {user.isStaff && (
             <Button
               variant="contained"
               color="primary"
@@ -192,7 +205,7 @@ const InterviewPage = () => {
             </Button>
           )}
           {interviews.length === 0 ? (
-            <p>{user?.isStaff ? 'Собеседования отсутствуют.' : 'У вас пока нет запланированных собеседований.'}</p>
+            <p>{user.isStaff ? 'Собеседования отсутствуют.' : 'У вас пока нет запланированных собеседований.'}</p>
           ) : (
             <table className="table table-striped">
               <thead>
@@ -326,7 +339,7 @@ const InterviewPage = () => {
                       <strong>Комментарий:</strong> {interviewToView.comment}
                     </p>
                   )}
-                  {user?.isStaff && interviewToView.status === 'SCHEDULED' && (
+                  {user.isStaff && interviewToView.status === 'SCHEDULED' && (
                     <div className="mt-3">
                       <label htmlFor="statusComment" className="form-label">
                         Комментарий к статусу
@@ -348,7 +361,7 @@ const InterviewPage = () => {
               <button type="button" className="btn btn-action btn-secondary" onClick={handleCloseViewModal}>
                 Закрыть
               </button>
-              {user?.isStaff && interviewToView?.status === 'SCHEDULED' && (
+              {user.isStaff && interviewToView?.status === 'SCHEDULED' && (
                 <>
                   <button
                     className="btn btn-action btn-success"

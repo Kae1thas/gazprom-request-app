@@ -25,7 +25,7 @@ class CandidateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Candidate
-        fields = ['id', 'user', 'date_of_birth']
+        fields = ['id', 'user', 'date_of_birth', 'has_successful_interview']
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')

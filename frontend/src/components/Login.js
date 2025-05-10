@@ -13,12 +13,13 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      console.log('Отправляем данные для логина:', { email, password }); // Отладка
       await login(email, password);
       toast.success('Вход выполнен успешно!');
       setError('');
       navigate('/home');
     } catch (err) {
-      console.error('Ошибка входа:', err.response?.data);
+      console.error('Ошибка входа:', err.response?.data); // Отладка
       setError(
         err.response?.data?.detail ||
         err.response?.data?.error ||

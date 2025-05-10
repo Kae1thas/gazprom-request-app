@@ -2,12 +2,13 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
+import { Navigate } from 'react-router-dom'; // Добавлено для перенаправления
 import Select from 'react-select';
 import { IMaskInput } from 'react-imask';
 import { FaEye, FaEdit, FaTrash } from 'react-icons/fa';
 
 const ResumePage = () => {
-  const { user } = useContext(AuthContext);
+  const { user, loading } = useContext(AuthContext); // Добавляем loading
   const [resumes, setResumes] = useState([]);
   const [resumeContent, setResumeContent] = useState('');
   const [education, setEducation] = useState(null);
@@ -31,6 +32,10 @@ const ResumePage = () => {
   ];
 
   useEffect(() => {
+    // Если данные еще загружаются, ничего не делаем
+    if (loading) return;
+
+    // Если пользователь не авторизован, устанавливаем ошибку или перенаправляем
     if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть личный кабинет');
       return;
@@ -52,7 +57,7 @@ const ResumePage = () => {
         const errorMsg = err.response?.data?.error || 'Не удалось загрузить резюме';
         setError(errorMsg);
       });
-  }, [user]);
+  }, [user, loading]); // Добавляем loading в зависимости
 
   const handleSubmitResume = async (e) => {
     e.preventDefault();
@@ -206,16 +211,32 @@ const ResumePage = () => {
     }
   };
 
+  // Если данные загружаются, показываем спиннер
+  if (loading) {
+    return (
+      <div className="container mt-5 text-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Загрузка...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Если пользователь не авторизован, перенаправляем на страницу логина
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
   return (
     <div className="container mt-5">
       <h1 className="text-center mb-4">Личный кабинет</h1>
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="card mb-4">
-        <h2 className="card-header">{user?.isStaff ? 'Все резюме' : 'Ваши резюме'}</h2>
+        <h2 className="card-header">{user.isStaff ? 'Все резюме' : 'Ваши резюме'}</h2>
         <div className="card-body">
           {resumes.length === 0 ? (
-            <p>{user?.isStaff ? 'Резюме отсутствуют.' : 'У вас пока нет резюме.'}</p>
+            <p>{user.isStaff ? 'Резюме отсутствуют.' : 'У вас пока нет резюме.'}</p>
           ) : (
             <table className="table table-striped">
               <thead>
@@ -251,7 +272,7 @@ const ResumePage = () => {
                         >
                           <FaEye />
                         </button>
-                        {!user?.isStaff && (
+                        {!user.isStaff && (
                           <>
                             {resume.status !== 'ACCEPTED' && (
                               <>
@@ -283,7 +304,7 @@ const ResumePage = () => {
         </div>
       </div>
 
-      {!user?.isStaff && (
+      {!user.isStaff && (
         <div className="card mb-4">
           <h2 className="card-header">Подать резюме</h2>
           <div className="card-body">
@@ -305,7 +326,7 @@ const ResumePage = () => {
                   id="education"
                   options={educationOptions}
                   value={education}
-                  onChange = {setEducation}
+                  onChange={setEducation}
                   placeholder="Выберите образование"
                   isClearable
                 />
@@ -434,7 +455,7 @@ const ResumePage = () => {
                       </div>
                     </div>
                   )}
-                  {user?.isStaff && resumeToView.status === 'PENDING' && (
+                  {user.isStaff && resumeToView.status === 'PENDING' && (
                     <div className="mt-3">
                       <label htmlFor="statusComment" className="form-label">Комментарий к статусу</label>
                       <textarea
@@ -454,7 +475,7 @@ const ResumePage = () => {
               <button type="button" className="btn btn-action btn-secondary" onClick={handleCloseViewModal}>
                 Закрыть
               </button>
-              {user?.isStaff && resumeToView?.status === 'PENDING' && (
+              {user.isStaff && resumeToView?.status === 'PENDING' && (
                 <>
                   <button
                     className="btn btn-action btn-success"

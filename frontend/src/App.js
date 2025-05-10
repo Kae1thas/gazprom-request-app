@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -17,9 +17,28 @@ import ModeratorDocumentsPage from './components/ModeratorDocumentsPage';
 import Login from './components/Login';
 import Register from './components/Register';
 
-// Внутренний компонент для содержимого приложения
+const ProtectedRoute = ({ children }) => {
+  const { user, loading, interviewLoading } = useContext(AuthContext);
+
+  if (loading || interviewLoading) {
+    return (
+      <div className="container mt-5 text-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Загрузка...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return children;
+};
+
 const AppContent = () => {
-  const { user } = useContext(AuthContext); // Теперь useContext работает, так как внутри AuthProvider
+  const { user } = useContext(AuthContext);
 
   return (
     <div className="d-flex min-vh-100">
@@ -27,15 +46,65 @@ const AppContent = () => {
       <div className={`flex-grow-1 main-content ${!user ? 'no-sidebar' : ''}`}>
         <Navbar />
         <Routes>
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/resume" element={<ResumePage />} />
-          <Route path="/interview" element={<InterviewPage />} />
-          <Route path="/documents" element={<DocumentsPage />} />
-          <Route path="/documents/moderator" element={<ModeratorDocumentsPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/final-status" element={<FinalStatusPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resume"
+            element={
+              <ProtectedRoute>
+                <ResumePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/interview"
+            element={
+              <ProtectedRoute>
+                <InterviewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <ProtectedRoute>
+                <DocumentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents/moderator"
+            element={
+              <ProtectedRoute>
+                <ModeratorDocumentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/final-status"
+            element={
+              <ProtectedRoute>
+                <FinalStatusPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/home" />} />
         </Routes>
         <ToastContainer
           position="top-right"

@@ -82,6 +82,7 @@ class User(AbstractUser):
 class Candidate(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='candidate_profile')
     date_of_birth = models.DateField(_('Дата рождения'), null=True, blank=True)
+    has_successful_interview = models.BooleanField(_('Успешное собеседование'), default=False)
 
     class Meta:
         verbose_name = 'Кандидат'

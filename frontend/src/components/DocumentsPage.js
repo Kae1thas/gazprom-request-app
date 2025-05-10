@@ -2,41 +2,48 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
+import { Navigate } from 'react-router-dom';
 import { Button, Card } from '@mui/material';
 import { CloudUpload, Download, Refresh } from '@mui/icons-material';
 
 const DocumentsPage = () => {
-  const { user, hasSuccessfulInterview } = useContext(AuthContext);
+  const { user, loading, interviewLoading, hasSuccessfulInterview } = useContext(AuthContext);
   const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Если данные профиля или собеседований еще загружаются, ничего не делаем
+    if (loading || interviewLoading) return;
+
+    // Если пользователь не авторизован
     if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть документы');
-      setLoading(false);
       return;
     }
+
+    // Если нет успешного собеседования
     if (!hasSuccessfulInterview) {
       setError('У вас нет успешного собеседования для загрузки документов');
-      setLoading(false);
       return;
     }
 
     const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Токен авторизации отсутствует');
+      return;
+    }
+
     axios
       .get('http://localhost:8000/api/documents/', {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((response) => {
         setDocuments(response.data);
-        setLoading(false);
       })
       .catch(() => {
         setError('Не удалось загрузить документы');
-        setLoading(false);
       });
-  }, [user, hasSuccessfulInterview]);
+  }, [user, loading, interviewLoading, hasSuccessfulInterview]);
 
   const handleUpload = async (slot, file) => {
     const token = localStorage.getItem('token');
@@ -59,50 +66,94 @@ const DocumentsPage = () => {
     window.open(fileUrl, '_blank');
   };
 
-  if (loading) return <div className="container mt-5">Загрузка...</div>;
-  if (error) return <div className="container mt-5 alert alert-danger">{error}</div>;
-
-  const documentSlots = Array.from({ length: 10 }, (_, index) => {
-    const slotNumber = index + 1;
-    const doc = documents.find((d, i) => i === index);
+  // Если данные профиля или собеседований загружаются, показываем спиннер
+  if (loading || interviewLoading) {
     return (
-      <div className="col-md-4 mb-4" key={slotNumber}>
-        <Card className="p-3">
-          <h5>Слот #{slotNumber}</h5>
-          {doc ? (
-            <>
-              <p>
-                <strong>Статус:</strong>{' '}
-                <span
-                  className={`badge ${
-                    doc.status === 'ACCEPTED'
-                      ? 'bg-success'
-                      : doc.status === 'REJECTED'
-                      ? 'bg-danger'
-                      : 'bg-warning'
-                  }`}
-                >
-                  {doc.status_display}
-                </span>
-              </p>
-              {doc.comment && (
-                <p>
-                  <strong>Комментарий:</strong> {doc.comment}
-                </p>
-              )}
-              <div className="d-flex gap-2">
-                {doc.status === 'ACCEPTED' && doc.file_path && (
-                  <Button
-                    variant="contained"
-                    startIcon={<Download />}
-                    onClick={() => handleDownload(doc.file_path)}
-                  >
-                    Скачать
-                  </Button>
-                )}
-                {doc.status === 'REJECTED' && (
-                  <Button variant="contained" startIcon={<Refresh />} component="label">
-                    Перезагрузить
+      <div className="container mt-5 text-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Загрузка...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Если пользователь не авторизован, перенаправляем на страницу логина
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  // Если нет успешного собеседования, показываем ошибку
+  if (!hasSuccessfulInterview) {
+    return (
+      <div className="container mt-5 alert alert-danger">
+        У вас нет успешного собеседования для загрузки документов.{' '}
+        <a href="/interview" className="alert-link">
+          Перейти к собеседованиям
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mt-5">
+      <h1 className="mb-4">Документы</h1>
+      <p>Загрузите до 10 документов для завершения процесса найма.</p>
+      {error && <div className="alert alert-danger">{error}</div>}
+      <div className="row">
+        {Array.from({ length: 10 }, (_, index) => {
+          const slotNumber = index + 1;
+          const doc = documents.find((d, i) => i === index);
+          return (
+            <div className="col-md-4 mb-4" key={slotNumber}>
+              <Card className="p-3">
+                <h5>Слот #{slotNumber}</h5>
+                {doc ? (
+                  <>
+                    <p>
+                      <strong>Статус:</strong>{' '}
+                      <span
+                        className={`badge ${
+                          doc.status === 'ACCEPTED'
+                            ? 'bg-success'
+                            : doc.status === 'REJECTED'
+                            ? 'bg-danger'
+                            : 'bg-warning'
+                        }`}
+                      >
+                        {doc.status_display}
+                      </span>
+                    </p>
+                    {doc.comment && (
+                      <p>
+                        <strong>Комментарий:</strong> {doc.comment}
+                      </p>
+                    )}
+                    <div className="d-flex gap-2">
+                      {doc.status === 'ACCEPTED' && doc.file_path && (
+                        <Button
+                          variant="contained"
+                          startIcon={<Download />}
+                          onClick={() => handleDownload(doc.file_path)}
+                        >
+                          Скачать
+                        </Button>
+                      )}
+                      {doc.status === 'REJECTED' && (
+                        <Button variant="contained" startIcon={<Refresh />} component="label">
+                          Перезагрузить
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.doc,.docx"
+                            onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
+                          />
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <Button variant="contained" startIcon={<CloudUpload />} component="label">
+                    Загрузить
                     <input
                       type="file"
                       hidden
@@ -111,29 +162,11 @@ const DocumentsPage = () => {
                     />
                   </Button>
                 )}
-              </div>
-            </>
-          ) : (
-            <Button variant="contained" startIcon={<CloudUpload />} component="label">
-              Загрузить
-              <input
-                type="file"
-                hidden
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
-              />
-            </Button>
-          )}
-        </Card>
+              </Card>
+            </div>
+          );
+        })}
       </div>
-    );
-  });
-
-  return (
-    <div className="container mt-5">
-      <h1 className="mb-4">Документы</h1>
-      <p>Загрузите до 10 документов для завершения процесса найма.</p>
-      <div className="row">{documentSlots}</div>
     </div>
   );
 };
