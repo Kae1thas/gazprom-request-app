@@ -144,40 +144,49 @@ const ResumePage = () => {
   };
 
   const handleEditResume = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem('token');
-    if (!editContent.trim()) {
-      setError('Содержание резюме не может быть пустым');
-      return;
-    }
+  e.preventDefault();
+  const token = localStorage.getItem('token');
+  if (!editContent.trim()) {
+    setError('Содержание резюме не может быть пустым');
+    return;
+  }
 
-    const cleanedPhoneNumber = editPhoneNumber ? editPhoneNumber.replace(/[\s()-\u200B-\u200F]/g, '') : '';
-    if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
-      setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
-      return;
-    }
+  // Исправляем очистку номера телефона
+  const cleanedPhoneNumber = editPhoneNumber ? editPhoneNumber.replace(/[\s()-]/g, '') : '';
+  console.log('editPhoneNumber:', editPhoneNumber);
+  console.log('cleanedPhoneNumber:', cleanedPhoneNumber);
 
-    try {
-      const response = await axios.patch(
-        `http://localhost:8000/api/resume/${resumeToEdit}/edit/`,
-        {
-          content: editContent.trim(),
-          education: editEducation?.value || '',
-          phone_number: cleanedPhoneNumber
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setResumes(resumes.map(resume =>
-        resume.id === resumeToEdit ? response.data : resume
-      ));
-      toast.success('Резюме успешно обновлено!');
-      handleCloseEditModal();
-    } catch (err) {
-      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.education || err.response?.data?.error || 'Ошибка при обновлении резюме';
-      toast.error(errorMsg);
-      setError(errorMsg);
-    }
+  if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
+    setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
+    return;
+  }
+
+  const payload = {
+    content: editContent.trim(),
+    education: editEducation?.value || '',
+    phone_number: cleanedPhoneNumber
   };
+  console.log('Data sent to server:', payload);
+
+  try {
+    const response = await axios.patch(
+      `http://localhost:8000/api/resume/${resumeToEdit}/edit/`,
+      payload,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    console.log('Response data:', response.data);
+    setResumes(resumes.map(resume =>
+      resume.id === resumeToEdit ? response.data : resume
+    ));
+    toast.success('Резюме успешно обновлено!');
+    handleCloseEditModal();
+  } catch (err) {
+    const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.education || err.response?.data?.error || 'Ошибка при обновлении резюме';
+    console.error('Error:', err.response?.data);
+    toast.error(errorMsg);
+    setError(errorMsg);
+  }
+};
 
   const handleOpenViewModal = (resume) => {
     setResumeToView(resume);
