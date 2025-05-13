@@ -49,7 +49,13 @@ const ModeratorDocumentsPage = () => {
   }, [user]);
 
   const handleDownload = (fileUrl) => {
-    window.open(fileUrl, '_blank');
+    const fullUrl = fileUrl.startsWith('http') ? fileUrl : `http://localhost:8000${fileUrl}`;
+    const link = document.createElement('a');
+    link.href = fullUrl;
+    link.download = ''; // Это заставит браузер скачать файл
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleStatusUpdate = async (documentId, status) => {

@@ -11,6 +11,8 @@ from request_app.views import (
     ResumeEditView, NotificationView, InterviewViewSet, 
     DocumentViewSet, NotificationViewSet
 )
+from django.conf import settings
+from django.conf.urls.static import static
 
 router = DefaultRouter()
 router.register(r'candidates', CandidateViewSet)
@@ -31,4 +33,4 @@ urlpatterns = [
     path('api/resume/<int:pk>/delete/', ResumeDeleteView.as_view(), name='resume-delete'),
     path('api/notifications/<int:pk>/', NotificationView.as_view(), name='notification'),
     path('api/', include(router.urls)),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

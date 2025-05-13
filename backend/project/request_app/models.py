@@ -142,7 +142,7 @@ class Interview(models.Model):
 # Модель документа
 class Document(models.Model):
     interview = models.ForeignKey(Interview, on_delete=models.CASCADE, related_name='documents')
-    file_path = models.CharField(_('Путь к файлу'), max_length=255)
+    file_path = models.FileField(_('Файл'), upload_to='documents/')
     uploaded_at = models.DateTimeField(_('Дата загрузки'), auto_now_add=True)
     status = models.CharField(_('Статус'), max_length=20, choices=DocumentStatusChoices.choices, default=DocumentStatusChoices.UPLOADED)
     comment = models.TextField(_('Комментарий'), max_length=500, blank=True, default='')

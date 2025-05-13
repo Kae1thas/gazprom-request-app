@@ -166,7 +166,7 @@ class InterviewSerializer(serializers.ModelSerializer):
 
 class DocumentSerializer(serializers.ModelSerializer):
     interview = InterviewSerializer(read_only=True)
-    file_path = serializers.FileField(write_only=True, required=False)
+    file_path = serializers.FileField(required=True)  # Удаляем write_only, так как поле нужно для чтения
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     comment = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
@@ -180,11 +180,17 @@ class DocumentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Собеседование не указано")
         if interview.result != 'SUCCESS':
             raise serializers.ValidationError("Документы можно загружать только после успешного собеседования")
-        # Проверка количества документов
         existing_docs = Document.objects.filter(interview=interview).count()
         if existing_docs >= 10 and not self.instance:
             raise serializers.ValidationError("Максимум 10 документов для одного собеседования")
         return data
+
+    def validate_file_path(self, value):
+        if not value.name.endswith(('.pdf', '.doc', '.docx')):
+            raise serializers.ValidationError('Файл должен быть в формате PDF, DOC или DOCX')
+        if value.size > 5 * 1024 * 1024:  # 5MB
+            raise serializers.ValidationError('Размер файла не должен превышать 5 МБ')
+        return value
 
     def validate_file_path(self, value):
         if value:
