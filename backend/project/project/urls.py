@@ -6,9 +6,9 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from request_app.views import (
-    RegisterView, MeView, CandidateViewSet, ResumeViewSet, 
-    ResumeCreateView, ResumeStatusUpdateView, ResumeDeleteView, 
-    ResumeEditView, NotificationView, InterviewViewSet, 
+    RegisterView, MeView, CandidateViewSet, ResumeViewSet,
+    ResumeCreateView, ResumeStatusUpdateView, ResumeDeleteView,
+    ResumeEditView, NotificationView, InterviewViewSet,
     DocumentViewSet, NotificationViewSet
 )
 from django.conf import settings

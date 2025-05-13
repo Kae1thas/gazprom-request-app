@@ -3,7 +3,6 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 import uuid
 
-# Кастомный менеджер для модели User
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -24,7 +23,6 @@ class CustomUserManager(BaseUserManager):
             raise ValueError(_('Суперпользователь должен иметь is_superuser=True'))
         return self.create_user(email, password, **extra_fields)
 
-# Перечисления для статусов и образования
 class EducationChoices(models.TextChoices):
     SECONDARY = 'SECONDARY', _('Среднее')
     HIGHER = 'HIGHER', _('Высшее')
@@ -51,10 +49,21 @@ class DocumentStatusChoices(models.TextChoices):
     ACCEPTED = 'ACCEPTED', _('Принят')
     REJECTED = 'REJECTED', _('Отклонен')
 
-# Кастомная модель пользователя
+class DocumentTypeChoices(models.TextChoices):
+    PASSPORT = 'Паспорт', _('Паспорт')
+    MILITARY = 'Приписное/Военник', _('Приписное/Военник')
+    DIPLOMA = 'Аттестат/Диплом', _('Аттестат/Диплом')
+    PSYCH = 'Справка с психодиспансера', _('Справка с психодиспансера')
+    NARC = 'Справка с наркодиспансера', _('Справка с наркодиспансера')
+    CRIMINAL = 'Справка о несудимости', _('Справка о несудимости')
+    CONSENT = 'Согласие на обработку персональных данных', _('Согласие на обработку персональных данных')
+    INN = 'ИНН', _('ИНН')
+    SNILS = 'СНИЛС', _('СНИЛС')
+    LABOR_BOOK = 'Трудовая книжка (опционально)', _('Трудовая книжка (опционально)')
+
 class User(AbstractUser):
     email = models.EmailField(_('Электронная почта'), unique=True, blank=False)
-    last_name = models.CharField(_('Фамилия'), max_length=150, blank=True)
+    last_name = models.CharField(_('Ф  Фамилия'), max_length=150, blank=True)
     first_name = models.CharField(_('Имя'), max_length=150, blank=True)
     patronymic = models.CharField(_('Отчество'), max_length=150, blank=True)
 
@@ -78,7 +87,6 @@ class User(AbstractUser):
         if hasattr(self, 'candidate_profile') and hasattr(self, 'employee_profile'):
             raise ValueError(_('Пользователь не может быть одновременно кандидатом и сотрудником'))
 
-# Модель кандидата
 class Candidate(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='candidate_profile')
     date_of_birth = models.DateField(_('Дата рождения'), null=True, blank=True)
@@ -91,7 +99,6 @@ class Candidate(models.Model):
     def __str__(self):
         return self.user.__str__()
 
-# Модель сотрудника
 class Employee(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='employee_profile')
     department = models.CharField(_('Отдел'), max_length=100, blank=True)
@@ -105,7 +112,6 @@ class Employee(models.Model):
     def __str__(self):
         return self.user.__str__()
 
-# Модель резюме
 class Resume(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='resumes')
     content = models.TextField(_('Содержание'))
@@ -122,7 +128,6 @@ class Resume(models.Model):
     def __str__(self):
         return f"Резюме {self.id} от {self.candidate.user.email}"
 
-# Модель собеседования
 class Interview(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='interviews')
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='interviews')
@@ -139,9 +144,9 @@ class Interview(models.Model):
     def __str__(self):
         return f"Собеседование {self.id} для {self.candidate.user.email}"
 
-# Модель документа
 class Document(models.Model):
     interview = models.ForeignKey(Interview, on_delete=models.CASCADE, related_name='documents')
+    document_type = models.CharField(_('Тип документа'), max_length=100, choices=DocumentTypeChoices.choices)
     file_path = models.FileField(_('Файл'), upload_to='documents/')
     uploaded_at = models.DateTimeField(_('Дата загрузки'), auto_now_add=True)
     status = models.CharField(_('Статус'), max_length=20, choices=DocumentStatusChoices.choices, default=DocumentStatusChoices.UPLOADED)
@@ -150,11 +155,24 @@ class Document(models.Model):
     class Meta:
         verbose_name = 'Документ'
         verbose_name_plural = 'Документы'
+        unique_together = ['interview', 'document_type']
 
     def __str__(self):
-        return f"Документ {self.id} для собеседования {self.interview.id}"
+        return f"Документ {self.id} ({self.document_type}) для собеседования {self.interview.id}"
 
-# Модель обратной связи
+class DocumentHistory(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='history')
+    status = models.CharField(_('Статус'), max_length=20, choices=DocumentStatusChoices.choices)
+    comment = models.TextField(_('Комментарий'), max_length=500, blank=True, default='')
+    created_at = models.DateTimeField(_('Дата изменения'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'История документа'
+        verbose_name_plural = 'История документов'
+
+    def __str__(self):
+        return f"История документа {self.document.id} от {self.created_at}"
+
 class Feedback(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='feedbacks')
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='feedbacks')
@@ -168,7 +186,6 @@ class Feedback(models.Model):
     def __str__(self):
         return f"Обратная связь {self.id} для документа {self.document.id}"
 
-# Модель уведомления
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     message = models.TextField(_('Сообщение'))

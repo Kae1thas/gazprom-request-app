@@ -5,12 +5,14 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db import models
-from .models import User, Candidate, Resume, Employee, Notification, Interview, Document
+from django.db.models import Q
+from django.db.utils import IntegrityError
+from .models import User, Candidate, Resume, Employee, Notification, Interview, Document, DocumentHistory
 from .serializers import (
-    CandidateSerializer, ResumeSerializer, UserSerializer, 
-    ResumeStatusUpdateSerializer, ResumeEditSerializer, 
-    NotificationSerializer, InterviewSerializer, InterviewCreateSerializer, 
-    DocumentSerializer, EmployeeSerializer
+    CandidateSerializer, ResumeSerializer, UserSerializer,
+    ResumeStatusUpdateSerializer, ResumeEditSerializer,
+    NotificationSerializer, InterviewSerializer, InterviewCreateSerializer,
+    DocumentSerializer, EmployeeSerializer, DocumentHistorySerializer
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -215,7 +217,6 @@ class InterviewViewSet(viewsets.ModelViewSet):
         serializer = InterviewCreateSerializer(data=request.data)
         if serializer.is_valid():
             interview = serializer.save()
-            # Создаем уведомление для кандидата
             Notification.objects.create(
                 user=interview.candidate.user,
                 message=f'Назначено собеседование #{interview.id} на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}'
@@ -256,12 +257,20 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
         serializer = DocumentSerializer(data=request.data, context={'interview': interview})
         if serializer.is_valid():
-            serializer.save(interview=interview)
-            Notification.objects.create(
-                user=interview.candidate.user,
-                message=f'Ваш документ #{serializer.data["id"]} успешно загружен.'
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            try:
+                document = serializer.save(interview=interview)
+                DocumentHistory.objects.create(
+                    document=document,
+                    status=document.status,
+                    comment=document.comment
+                )
+                Notification.objects.create(
+                    user=interview.candidate.user,
+                    message=f'Ваш документ #{document.id} ({document.document_type}) успешно загружен.'
+                )
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except IntegrityError as e:
+                return Response({'error': f'Ошибка: Документ этого типа уже загружен'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
@@ -269,10 +278,15 @@ class DocumentViewSet(viewsets.ModelViewSet):
         document = self.get_object()
         serializer = DocumentSerializer(document, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            document = serializer.save()
+            DocumentHistory.objects.create(
+                document=document,
+                status=document.status,
+                comment=document.comment
+            )
             Notification.objects.create(
                 user=document.interview.candidate.user,
-                message=f'Ваш документ #{document.id} успешно загружен.'
+                message=f'Ваш документ #{document.id} ({document.document_type}) успешно обновлен.'
             )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -287,11 +301,57 @@ class DocumentViewSet(viewsets.ModelViewSet):
         document.status = status
         document.comment = comment
         document.save()
+        DocumentHistory.objects.create(
+            document=document,
+            status=document.status,
+            comment=document.comment
+        )
         Notification.objects.create(
             user=document.interview.candidate.user,
-            message=f'Статус вашего документа #{document.id} изменён на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}'
+            message=f'Статус вашего документа #{document.id} ({document.document_type}) изменён на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}'
         )
         return Response(DocumentSerializer(document).data)
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def history(self, request, pk=None):
+        document = self.get_object()
+        history = DocumentHistory.objects.filter(document=document).order_by('-created_at')
+        serializer = DocumentHistorySerializer(history, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def notify_missing(self, request):
+        interview_id = request.data.get('interview_id')
+        missing_types = request.data.get('missing_types', [])
+        try:
+            interview = Interview.objects.get(id=interview_id)
+            message = f'Необходимо загрузить следующие документы: {", ".join(missing_types)}.'
+            Notification.objects.create(
+                user=interview.candidate.user,
+                message=message
+            )
+            return Response({'message': 'Уведомление отправлено'}, status=status.HTTP_200_OK)
+        except Interview.DoesNotExist:
+            return Response({'error': 'Собеседование не найдено'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsAdminUser])
+    def reject_candidate(self, request):
+        interview_id = request.data.get('interview_id')
+        try:
+            interview = Interview.objects.get(id=interview_id)
+            candidate = interview.candidate
+            candidate.has_successful_interview = False
+            candidate.save()
+            interview.result = 'FAILURE'
+            interview.save()
+            Document.objects.filter(interview=interview).delete()
+            Notification.objects.create(
+                user=candidate.user,
+                message='Ваша кандидатура была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
+            )
+            return Response({'message': 'Кандидат отклонен'}, status=status.HTTP_200_OK)
+        except Interview.DoesNotExist:
+            return Response({'error': 'Собеседование не найдено'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsAdminUser])
     def confirm_hire(self, request):
@@ -299,11 +359,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
         try:
             interview = Interview.objects.get(id=interview_id, result='SUCCESS')
             documents = Document.objects.filter(interview=interview)
-            if documents.count() != 10:
-                return Response({'error': 'Необходимо загрузить ровно 10 документов'}, status=status.HTTP_400_BAD_REQUEST)
-            if not all(doc.status == 'ACCEPTED' for doc in documents):
-                return Response({'error': 'Все документы должны быть приняты'}, status=status.HTTP_400_BAD_REQUEST)
-            # Обновляем статус кандидата (например, создаем Employee)
+            required_types = [
+                'Паспорт', 'Приписное/Военник', 'Аттестат/Диплом',
+                'Справка с психодиспансера', 'Справка с наркодиспансера',
+                'Справка о несудимости', 'Согласие на обработку персональных данных',
+                'ИНН', 'СНИЛС'
+            ]
+            uploaded_types = [doc.document_type for doc in documents]
+            missing_types = [t for t in required_types if t not in uploaded_types]
+            if missing_types:
+                return Response({'error': f'Отсутствуют документы: {", ".join(missing_types)}'}, status=status.HTTP_400_BAD_REQUEST)
+            if not all(doc.status == 'ACCEPTED' for doc in documents if doc.document_type in required_types):
+                return Response({'error': 'Все обязательные документы должны быть приняты'}, status=status.HTTP_400_BAD_REQUEST)
             candidate = interview.candidate
             Employee.objects.create(
                 user=candidate.user,
@@ -311,6 +378,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 position='Не указано',
                 hire_date=timezone.now().date()
             )
+            candidate.has_successful_interview = False
+            candidate.save()
             Notification.objects.create(
                 user=candidate.user,
                 message='Поздравляем! Вы приняты на работу.'

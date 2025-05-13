@@ -6,22 +6,32 @@ import { Navigate } from 'react-router-dom';
 import { Button, Card } from '@mui/material';
 import { CloudUpload, Download, Refresh } from '@mui/icons-material';
 
+const documentTypes = [
+  'Паспорт',
+  'Приписное/Военник',
+  'Аттестат/Диплом',
+  'Справка с психодиспансера',
+  'Справка с наркодиспансера',
+  'Справка о несудимости',
+  'Согласие на обработку персональных данных',
+  'ИНН',
+  'СНИЛС',
+  'Трудовая книжка (опционально)',
+];
+
 const DocumentsPage = () => {
   const { user, loading, interviewLoading, hasSuccessfulInterview } = useContext(AuthContext);
   const [documents, setDocuments] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Если данные профиля или собеседований еще загружаются, ничего не делаем
     if (loading || interviewLoading) return;
 
-    // Если пользователь не авторизован
     if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть документы');
       return;
     }
 
-    // Если нет успешного собеседования
     if (!hasSuccessfulInterview) {
       setError('У вас нет успешного собеседования для загрузки документов');
       return;
@@ -49,24 +59,42 @@ const DocumentsPage = () => {
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file_path', file);
+    const documentType = documentTypes[slot - 1];
+    formData.append('document_type', documentType);
+
     try {
-      const response = await axios.post(
-        'http://localhost:8000/api/documents/',
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(`Документ в слоте ${slot} успешно загружен!`);
-      setDocuments((prev) => [...prev, response.data]);
+      const doc = documents.find((d) => d.document_type === documentType);
+      let response;
+      if (doc && doc.status === 'REJECTED') {
+        response = await axios.patch(
+          `http://localhost:8000/api/documents/${doc.id}/upload/`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        response = await axios.post(
+          'http://localhost:8000/api/documents/',
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      toast.success(`Документ "${documentType}" успешно загружен!`);
+      setDocuments((prev) => {
+        if (doc && doc.status === 'REJECTED') {
+          return prev.map((d) => (d.id === doc.id ? response.data : d));
+        }
+        return [...prev, response.data];
+      });
     } catch (err) {
       toast.error(err.response?.data?.file_path || 'Ошибка при загрузке документа');
     }
   };
 
   const handleDownload = (fileUrl) => {
-    window.open(fileUrl, '_blank');
+    const fullUrl = fileUrl.startsWith('http') ? fileUrl : `http://localhost:8000${fileUrl}`;
+    window.open(fullUrl, '_blank');
   };
 
-  // Если данные профиля или собеседований загружаются, показываем спиннер
   if (loading || interviewLoading) {
     return (
       <div className="container mt-5 text-center">
@@ -77,12 +105,10 @@ const DocumentsPage = () => {
     );
   }
 
-  // Если пользователь не авторизован, перенаправляем на страницу логина
   if (!user) {
     return <Navigate to="/login" />;
   }
 
-  // Если нет успешного собеседования, показываем ошибку
   if (!hasSuccessfulInterview) {
     return (
       <div className="container mt-5 alert alert-danger">
@@ -102,11 +128,12 @@ const DocumentsPage = () => {
       <div className="row">
         {Array.from({ length: 10 }, (_, index) => {
           const slotNumber = index + 1;
-          const doc = documents.find((d, i) => i === index);
+          const documentType = documentTypes[slotNumber - 1];
+          const doc = documents.find((d) => d.document_type === documentType);
           return (
             <div className="col-md-4 mb-4" key={slotNumber}>
               <Card className="p-3">
-                <h5>Слот #{slotNumber}</h5>
+                <h5>Слот #{slotNumber}: {documentType}</h5>
                 {doc ? (
                   <>
                     <p>
@@ -129,7 +156,7 @@ const DocumentsPage = () => {
                       </p>
                     )}
                     <div className="d-flex gap-2">
-                      {doc.status === 'ACCEPTED' && doc.file_path && (
+                      {doc.file_path && (
                         <Button
                           variant="contained"
                           startIcon={<Download />}

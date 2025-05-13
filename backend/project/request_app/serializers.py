@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Candidate, Resume, Notification, Interview, Document, Employee
+from .models import User, Candidate, Resume, Notification, Interview, Document, Employee, DocumentHistory, DocumentTypeChoices
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
@@ -145,10 +145,8 @@ class InterviewCreateSerializer(serializers.ModelSerializer):
         candidate = data['candidate']
         employee = data['employee']
         scheduled_at = data['scheduled_at']
-        # Проверка, есть ли у кандидата принятое резюме
         if not Resume.objects.filter(candidate=candidate, status='ACCEPTED').exists():
             raise serializers.ValidationError("Кандидат должен иметь хотя бы одно принятое резюме")
-        # Проверка конфликтов расписания
         if Interview.objects.filter(
             models.Q(candidate=candidate) | models.Q(employee=employee),
             scheduled_at=scheduled_at
@@ -164,15 +162,25 @@ class InterviewSerializer(serializers.ModelSerializer):
         model = Interview
         fields = ['id', 'candidate', 'employee', 'scheduled_at', 'status', 'result', 'comment']
 
+class DocumentHistorySerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = DocumentHistory
+        fields = ['id', 'status', 'status_display', 'comment', 'created_at']
+        read_only_fields = ['id', 'status', 'status_display', 'created_at']
+
 class DocumentSerializer(serializers.ModelSerializer):
     interview = InterviewSerializer(read_only=True)
-    file_path = serializers.FileField(required=True)  # Удаляем write_only, так как поле нужно для чтения
+    file_path = serializers.FileField(required=True)
+    document_type = serializers.ChoiceField(choices=DocumentTypeChoices.choices, required=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     comment = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
     class Meta:
         model = Document
-        fields = ['id', 'interview', 'file_path', 'uploaded_at', 'status', 'status_display', 'comment']
+        fields = ['id', 'interview', 'file_path', 'document_type', 'uploaded_at', 'status', 'status_display', 'comment']
+        read_only_fields = ['id', 'interview', 'uploaded_at', 'status', 'status_display']
 
     def validate(self, data):
         interview = self.context.get('interview')
@@ -183,6 +191,11 @@ class DocumentSerializer(serializers.ModelSerializer):
         existing_docs = Document.objects.filter(interview=interview).count()
         if existing_docs >= 10 and not self.instance:
             raise serializers.ValidationError("Максимум 10 документов для одного собеседования")
+        if 'document_type' in data and Document.objects.filter(
+            interview=interview,
+            document_type=data['document_type']
+        ).exists() and not self.instance:
+            raise serializers.ValidationError(f"Документ типа {data['document_type']} уже загружен для этого собеседования")
         return data
 
     def validate_file_path(self, value):
@@ -190,14 +203,6 @@ class DocumentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Файл должен быть в формате PDF, DOC или DOCX')
         if value.size > 5 * 1024 * 1024:  # 5MB
             raise serializers.ValidationError('Размер файла не должен превышать 5 МБ')
-        return value
-
-    def validate_file_path(self, value):
-        if value:
-            if not value.name.endswith(('.pdf', '.doc', '.docx')):
-                raise serializers.ValidationError('Файл должен быть в формате PDF, DOC или DOCX')
-            if value.size > 5 * 1024 * 1024:  # 5MB
-                raise serializers.ValidationError('Размер файла не должен превышать 5 МБ')
         return value
 
 class NotificationSerializer(serializers.ModelSerializer):
