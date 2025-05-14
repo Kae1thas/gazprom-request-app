@@ -273,6 +273,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 return Response({'error': f'Ошибка: Документ этого типа уже загружен'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def destroy(self, request, pk=None):
+        try:
+            document = Document.objects.get(pk=pk, interview__candidate__user=request.user)
+        except Document.DoesNotExist:
+            return Response({'error': 'Документ не найден или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
+
+        document.delete()
+        Notification.objects.create(
+            user=request.user,
+            message=f'Ваш документ #{pk} ({document.document_type}) успешно удален.'
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def upload(self, request, pk=None):
         document = self.get_object()

@@ -161,7 +161,6 @@ const ModeratorDocumentsPage = () => {
                   <TableRow>
                     <TableCell>Тип</TableCell>
                     <TableCell>Статус</TableCell>
-                    <TableCell>Комментарий</TableCell>
                     <TableCell align="center">Действия</TableCell>
                   </TableRow>
                 </TableHead>
@@ -188,7 +187,6 @@ const ModeratorDocumentsPage = () => {
                             'Не загружен'
                           )}
                         </TableCell>
-                        <TableCell>{doc?.comment || ''}</TableCell>
                         <TableCell align="center">
                           {doc && (
                             <div className="d-flex gap-1 justify-content-center">

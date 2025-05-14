@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableRow, TableHead, Button, Tooltip } from '@mui/material';
-import { CloudUpload, Download, Refresh, Visibility } from '@mui/icons-material';
+import { CloudUpload, Download, Refresh, Visibility, Delete } from '@mui/icons-material';
 import DocumentModal from './DocumentModal';
 
 const documentTypes = [
@@ -98,6 +98,19 @@ const DocumentsPage = () => {
     window.open(fullUrl, '_blank');
   };
 
+  const handleDelete = async (docId) => {
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(`http://localhost:8000/api/documents/${docId}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Документ успешно удален!');
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Ошибка при удалении документа');
+    }
+  };
+
   const handleOpenModal = (doc) => {
     setSelectedDoc(doc);
     setOpenModal(true);
@@ -143,7 +156,6 @@ const DocumentsPage = () => {
           <TableRow>
             <TableCell>Тип</TableCell>
             <TableCell>Статус</TableCell>
-            <TableCell>Комментарий</TableCell>
             <TableCell align="center">Действия</TableCell>
           </TableRow>
         </TableHead>
@@ -171,7 +183,6 @@ const DocumentsPage = () => {
                     'Не загружен'
                   )}
                 </TableCell>
-                <TableCell>{doc?.comment || ''}</TableCell>
                 <TableCell align="center">
                   {doc ? (
                     <div className="d-flex gap-1 justify-content-center">
@@ -230,6 +241,21 @@ const DocumentsPage = () => {
                           </Button>
                         </Tooltip>
                       )}
+                      <Tooltip title="Удалить">
+                        <Button
+                          onClick={() => handleDelete(doc.id)}
+                          sx={{
+                            backgroundColor: '#d32f2f',
+                            color: '#fff',
+                            '&:hover': { backgroundColor: '#b71c1c' },
+                            borderRadius: '8px',
+                            minWidth: '40px',
+                            padding: '8px',
+                          }}
+                        >
+                          <Delete fontSize="small" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   ) : (
                     <Tooltip title="Загрузить">
