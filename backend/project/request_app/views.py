@@ -262,7 +262,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 DocumentHistory.objects.create(
                     document=document,
                     status=document.status,
-                    comment=document.comment
+                    comment='Документ загружен'
                 )
                 Notification.objects.create(
                     user=interview.candidate.user,
@@ -279,30 +279,17 @@ class DocumentViewSet(viewsets.ModelViewSet):
         except Document.DoesNotExist:
             return Response({'error': 'Документ не найден или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
 
+        DocumentHistory.objects.create(
+            document=document,
+            status='DELETED',
+            comment='Документ удалён пользователем'
+        )
         document.delete()
         Notification.objects.create(
-            user=request.user,
-            message=f'Ваш документ #{pk} ({document.document_type}) успешно удален.'
+            user=document.interview.candidate.user,
+            message=f'Ваш документ #{pk} ({document.document_type}) удалён.'
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def upload(self, request, pk=None):
-        document = self.get_object()
-        serializer = DocumentSerializer(document, data=request.data, partial=True)
-        if serializer.is_valid():
-            document = serializer.save()
-            DocumentHistory.objects.create(
-                document=document,
-                status=document.status,
-                comment=document.comment
-            )
-            Notification.objects.create(
-                user=document.interview.candidate.user,
-                message=f'Ваш документ #{document.id} ({document.document_type}) успешно обновлен.'
-            )
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated, IsAdminUser])
     def status(self, request, pk=None):

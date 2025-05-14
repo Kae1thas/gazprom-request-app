@@ -48,6 +48,7 @@ class DocumentStatusChoices(models.TextChoices):
     UNDER_REVIEW = 'UNDER_REVIEW', _('На проверке')
     ACCEPTED = 'ACCEPTED', _('Принят')
     REJECTED = 'REJECTED', _('Отклонен')
+    DELETED = 'DELETED', _('Удалён')
 
 class DocumentTypeChoices(models.TextChoices):
     PASSPORT = 'Паспорт', _('Паспорт')
@@ -63,7 +64,7 @@ class DocumentTypeChoices(models.TextChoices):
 
 class User(AbstractUser):
     email = models.EmailField(_('Электронная почта'), unique=True, blank=False)
-    last_name = models.CharField(_('Ф  Фамилия'), max_length=150, blank=True)
+    last_name = models.CharField(_('Фамилия'), max_length=150, blank=True)
     first_name = models.CharField(_('Имя'), max_length=150, blank=True)
     patronymic = models.CharField(_('Отчество'), max_length=150, blank=True)
 

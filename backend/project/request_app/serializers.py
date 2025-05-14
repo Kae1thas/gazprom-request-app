@@ -163,12 +163,21 @@ class InterviewSerializer(serializers.ModelSerializer):
         fields = ['id', 'candidate', 'employee', 'scheduled_at', 'status', 'result', 'comment']
 
 class DocumentHistorySerializer(serializers.ModelSerializer):
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    status_display = serializers.SerializerMethodField()
 
     class Meta:
         model = DocumentHistory
         fields = ['id', 'status', 'status_display', 'comment', 'created_at']
         read_only_fields = ['id', 'status', 'status_display', 'created_at']
+
+    def get_status_display(self, obj):
+        return {
+            'UPLOADED': 'Загружен',
+            'UNDER_REVIEW': 'На проверке',
+            'ACCEPTED': 'Принят',
+            'REJECTED': 'Отклонен',
+            'DELETED': 'Удалён'
+        }.get(obj.status, obj.status)
 
 class DocumentSerializer(serializers.ModelSerializer):
     interview = InterviewSerializer(read_only=True)

@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableRow, TableHead, Button, Tooltip } from '@mui/material';
-import { CloudUpload, Download, Refresh, Visibility, Delete } from '@mui/icons-material';
+import { CloudUpload, Download, Visibility, Delete } from '@mui/icons-material';
 import DocumentModal from './DocumentModal';
 
 const documentTypes = [
@@ -66,28 +66,13 @@ const DocumentsPage = () => {
     formData.append('document_type', documentType);
 
     try {
-      const doc = documents.find((d) => d.document_type === documentType);
-      let response;
-      if (doc && doc.status === 'REJECTED') {
-        response = await axios.patch(
-          `http://localhost:8000/api/documents/${doc.id}/upload/`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } else {
-        response = await axios.post(
-          'http://localhost:8000/api/documents/',
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
+      const response = await axios.post(
+        'http://localhost:8000/api/documents/',
+        formData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       toast.success(`Документ "${documentType}" успешно загружен!`);
-      setDocuments((prev) => {
-        if (doc && doc.status === 'REJECTED') {
-          return prev.map((d) => (d.id === doc.id ? response.data : d));
-        }
-        return [...prev, response.data];
-      });
+      setDocuments((prev) => [...prev, response.data]);
     } catch (err) {
       toast.error(err.response?.data?.file_path || 'Ошибка при загрузке документа');
     }
@@ -206,38 +191,15 @@ const DocumentsPage = () => {
                           <Button
                             onClick={() => handleDownload(doc.file_path)}
                             sx={{
-                              backgroundColor: '#1976d2',
+                              backgroundColor: '#ffc107',
                               color: '#fff',
-                              '&:hover': { backgroundColor: '#1565c0' },
+                              '&:hover': { backgroundColor: '#e0a800' },
                               borderRadius: '8px',
                               minWidth: '40px',
                               padding: '8px',
                             }}
                           >
                             <Download fontSize="small" />
-                          </Button>
-                        </Tooltip>
-                      )}
-                      {doc.status === 'REJECTED' && (
-                        <Tooltip title="Перезагрузить">
-                          <Button
-                            component="label"
-                            sx={{
-                              backgroundColor: '#ed6c02',
-                              color: '#fff',
-                              '&:hover': { backgroundColor: '#d45d00' },
-                              borderRadius: '8px',
-                              minWidth: '40px',
-                              padding: '8px',
-                            }}
-                          >
-                            <Refresh fontSize="small" />
-                            <input
-                              type="file"
-                              hidden
-                              accept=".pdf,.doc,.docx"
-                              onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
-                            />
                           </Button>
                         </Tooltip>
                       )}

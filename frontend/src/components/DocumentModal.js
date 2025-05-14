@@ -39,7 +39,7 @@ const DocumentModal = ({ open, onClose, document, onStatusUpdate, isModerator })
       };
       fetchHistory();
     } else {
-      setHistory([]); // Для пользователей история не загружается
+      setHistory([]);
     }
   }, [open, document.id, document.comment, isModerator]);
 
@@ -73,7 +73,7 @@ const DocumentModal = ({ open, onClose, document, onStatusUpdate, isModerator })
         });
         setHistory(historyResponse.data);
       }
-      onClose(); // Закрываем модальное окно после успешного обновления
+      onClose();
     } catch (err) {
       toast.error('Ошибка при обновлении статуса документа');
     }
