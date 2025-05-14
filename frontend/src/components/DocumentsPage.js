@@ -3,8 +3,9 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableRow, TableHead, IconButton, Tooltip } from '@mui/material';
-import { CloudUpload, Download, Refresh } from '@mui/icons-material';
+import { Table, TableBody, TableCell, TableRow, TableHead, Button, Tooltip } from '@mui/material';
+import { CloudUpload, Download, Refresh, Visibility } from '@mui/icons-material';
+import DocumentModal from './DocumentModal';
 
 const documentTypes = [
   'Паспорт',
@@ -23,6 +24,8 @@ const DocumentsPage = () => {
   const { user, loading, interviewLoading, hasSuccessfulInterview } = useContext(AuthContext);
   const [documents, setDocuments] = useState([]);
   const [error, setError] = useState('');
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState(null);
 
   useEffect(() => {
     if (loading || interviewLoading) return;
@@ -95,6 +98,16 @@ const DocumentsPage = () => {
     window.open(fullUrl, '_blank');
   };
 
+  const handleOpenModal = (doc) => {
+    setSelectedDoc(doc);
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setSelectedDoc(null);
+  };
+
   if (loading || interviewLoading) {
     return (
       <div className="container mt-5 text-center">
@@ -162,16 +175,51 @@ const DocumentsPage = () => {
                 <TableCell align="center">
                   {doc ? (
                     <div className="d-flex gap-1 justify-content-center">
+                      <Tooltip title="Просмотреть">
+                        <Button
+                          onClick={() => handleOpenModal(doc)}
+                          sx={{
+                            backgroundColor: '#1976d2',
+                            color: '#fff',
+                            '&:hover': { backgroundColor: '#1565c0' },
+                            borderRadius: '8px',
+                            minWidth: '40px',
+                            padding: '8px',
+                          }}
+                        >
+                          <Visibility fontSize="small" />
+                        </Button>
+                      </Tooltip>
                       {doc.file_path && (
                         <Tooltip title="Скачать">
-                          <IconButton onClick={() => handleDownload(doc.file_path)}>
+                          <Button
+                            onClick={() => handleDownload(doc.file_path)}
+                            sx={{
+                              backgroundColor: '#1976d2',
+                              color: '#fff',
+                              '&:hover': { backgroundColor: '#1565c0' },
+                              borderRadius: '8px',
+                              minWidth: '40px',
+                              padding: '8px',
+                            }}
+                          >
                             <Download fontSize="small" />
-                          </IconButton>
+                          </Button>
                         </Tooltip>
                       )}
                       {doc.status === 'REJECTED' && (
                         <Tooltip title="Перезагрузить">
-                          <IconButton component="label">
+                          <Button
+                            component="label"
+                            sx={{
+                              backgroundColor: '#ed6c02',
+                              color: '#fff',
+                              '&:hover': { backgroundColor: '#d45d00' },
+                              borderRadius: '8px',
+                              minWidth: '40px',
+                              padding: '8px',
+                            }}
+                          >
                             <Refresh fontSize="small" />
                             <input
                               type="file"
@@ -179,13 +227,23 @@ const DocumentsPage = () => {
                               accept=".pdf,.doc,.docx"
                               onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
                             />
-                          </IconButton>
+                          </Button>
                         </Tooltip>
                       )}
                     </div>
                   ) : (
                     <Tooltip title="Загрузить">
-                      <IconButton component="label">
+                      <Button
+                        component="label"
+                        sx={{
+                          backgroundColor: '#2e7d32',
+                          color: '#fff',
+                          '&:hover': { backgroundColor: '#1b5e20' },
+                          borderRadius: '8px',
+                          minWidth: '40px',
+                          padding: '8px',
+                        }}
+                      >
                         <CloudUpload fontSize="small" />
                         <input
                           type="file"
@@ -193,7 +251,7 @@ const DocumentsPage = () => {
                           accept=".pdf,.doc,.docx"
                           onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
                         />
-                      </IconButton>
+                      </Button>
                     </Tooltip>
                   )}
                 </TableCell>
@@ -202,6 +260,14 @@ const DocumentsPage = () => {
           })}
         </TableBody>
       </Table>
+      {selectedDoc && (
+        <DocumentModal
+          open={openModal}
+          onClose={handleCloseModal}
+          document={selectedDoc}
+          isModerator={false}
+        />
+      )}
     </div>
   );
 };

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
-import { Table, TableBody, TableCell, TableHead, TableRow, IconButton, TextField, Tooltip } from '@mui/material';
-import { Download, Check, Close, History, Warning, PersonAdd, PersonRemove } from '@mui/icons-material';
+import { Table, TableBody, TableCell, TableHead, TableRow, Button, Tooltip } from '@mui/material';
+import { Warning, PersonAdd, PersonRemove, Download, Visibility } from '@mui/icons-material';
+import DocumentModal from './DocumentModal';
 
 const documentTypes = [
   'Паспорт',
@@ -22,11 +23,10 @@ const ModeratorDocumentsPage = () => {
   const { user } = useContext(AuthContext);
   const [interviews, setInterviews] = useState([]);
   const [documents, setDocuments] = useState({});
-  const [comments, setComments] = useState({});
-  const [history, setHistory] = useState({});
-  const [showHistory, setShowHistory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState(null);
 
   useEffect(() => {
     if (!user?.isStaff) {
@@ -62,50 +62,6 @@ const ModeratorDocumentsPage = () => {
         setLoading(false);
       });
   }, [user]);
-
-  const fetchHistory = async (documentId) => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await axios.get(`http://localhost:8000/api/documents/${documentId}/history/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setHistory((prev) => ({ ...prev, [documentId]: response.data }));
-    } catch (err) {
-      toast.error('Ошибка при загрузке истории документа');
-    }
-  };
-
-  const handleDownload = (fileUrl) => {
-    const fullUrl = fileUrl.startsWith('http') ? fileUrl : `http://localhost:8000${fileUrl}`;
-    window.open(fullUrl, '_blank');
-  };
-
-  const handleStatusUpdate = async (documentId, status) => {
-    const token = localStorage.getItem('token');
-    const comment = comments[documentId] || '';
-    try {
-      const response = await axios.patch(
-        `http://localhost:8000/api/documents/${documentId}/status/`,
-        { status, comment },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(`Документ #${documentId} обновлен: ${status}`);
-      setDocuments((prev) => {
-        const updatedDocs = { ...prev };
-        Object.keys(updatedDocs).forEach((interviewId) => {
-          updatedDocs[interviewId] = updatedDocs[interviewId].map((doc) =>
-            doc.id === documentId ? response.data : doc
-          );
-        });
-        return updatedDocs;
-      });
-      if (showHistory === documentId) {
-        fetchHistory(documentId);
-      }
-    } catch (err) {
-      toast.error('Ошибка при обновлении статуса документа');
-    }
-  };
 
   const handleNotifyMissing = async (interviewId) => {
     const token = localStorage.getItem('token');
@@ -159,19 +115,26 @@ const ModeratorDocumentsPage = () => {
     }
   };
 
-  const handleCommentChange = (documentId, value) => {
-    setComments((prev) => ({ ...prev, [documentId]: value }));
+  const handleOpenModal = (doc) => {
+    setSelectedDoc(doc);
+    setOpenModal(true);
   };
 
-  const toggleHistory = (documentId) => {
-    if (showHistory === documentId) {
-      setShowHistory(null);
-    } else {
-      setShowHistory(documentId);
-      if (!history[documentId]) {
-        fetchHistory(documentId);
-      }
-    }
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setSelectedDoc(null);
+  };
+
+  const handleStatusUpdate = (updatedDoc) => {
+    setDocuments((prev) => {
+      const updatedDocs = { ...prev };
+      Object.keys(updatedDocs).forEach((interviewId) => {
+        updatedDocs[interviewId] = updatedDocs[interviewId].map((doc) =>
+          doc.id === updatedDoc.id ? updatedDoc : doc
+        );
+      });
+      return updatedDocs;
+    });
   };
 
   if (loading) return <div className="container mt-5">Загрузка...</div>;
@@ -225,46 +188,44 @@ const ModeratorDocumentsPage = () => {
                             'Не загружен'
                           )}
                         </TableCell>
-                        <TableCell>
-                          {doc && (
-                            <TextField
-                              value={comments[doc.id] || doc.comment || ''}
-                              onChange={(e) => handleCommentChange(doc.id, e.target.value)}
-                              fullWidth
-                              multiline
-                              rows={1}
-                              size="small"
-                            />
-                          )}
-                        </TableCell>
+                        <TableCell>{doc?.comment || ''}</TableCell>
                         <TableCell align="center">
                           {doc && (
                             <div className="d-flex gap-1 justify-content-center">
+                              <Tooltip title="Просмотреть">
+                                <Button
+                                  onClick={() => handleOpenModal(doc)}
+                                  sx={{
+                                    backgroundColor: '#1976d2',
+                                    color: '#fff',
+                                    '&:hover': { backgroundColor: '#1565c0' },
+                                    borderRadius: '8px',
+                                    minWidth: '40px',
+                                    padding: '8px',
+                                  }}
+                                >
+                                  <Visibility fontSize="small" />
+                                </Button>
+                              </Tooltip>
                               <Tooltip title="Скачать">
-                                <IconButton onClick={() => handleDownload(doc.file_path)}>
+                                <Button
+                                  onClick={() => {
+                                    const fullUrl = doc.file_path.startsWith('http')
+                                      ? doc.file_path
+                                      : `http://localhost:8000${doc.file_path}`;
+                                    window.open(fullUrl, '_blank');
+                                  }}
+                                  sx={{
+                                    backgroundColor: '#1976d2',
+                                    color: '#fff',
+                                    '&:hover': { backgroundColor: '#1565c0' },
+                                    borderRadius: '8px',
+                                    minWidth: '40px',
+                                    padding: '8px',
+                                  }}
+                                >
                                   <Download fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Принять">
-                                <IconButton
-                                  color="success"
-                                  onClick={() => handleStatusUpdate(doc.id, 'ACCEPTED')}
-                                >
-                                  <Check fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Отклонить">
-                                <IconButton
-                                  color="error"
-                                  onClick={() => handleStatusUpdate(doc.id, 'REJECTED')}
-                                >
-                                  <Close fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title={showHistory === doc.id ? 'Скрыть историю' : 'Показать историю'}>
-                                <IconButton onClick={() => toggleHistory(doc.id)}>
-                                  <History fontSize="small" />
-                                </IconButton>
+                                </Button>
                               </Tooltip>
                             </div>
                           )}
@@ -275,47 +236,67 @@ const ModeratorDocumentsPage = () => {
                 </TableBody>
               </Table>
             )}
-            {showHistory && history[showHistory] && (
-              <div className="card mt-4">
-                <h5 className="card-header">История изменений документа</h5>
-                <div className="card-body">
-                  {history[showHistory].length === 0 ? (
-                    <p>История отсутствует</p>
-                  ) : (
-                    <ul>
-                      {history[showHistory].map((entry, idx) => (
-                        <li key={idx}>
-                          <strong>{new Date(entry.created_at).toLocaleString()}:</strong> {entry.status_display}{' '}
-                          {entry.comment && `(Комментарий: ${entry.comment})`}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
             <div className="d-flex gap-2 mt-3">
               <Tooltip title="Уведомить о недостающих документах">
-                <IconButton onClick={() => handleNotifyMissing(interview.id)}>
-                  <Warning color="warning" />
-                </IconButton>
+                <Button
+                  onClick={() => handleNotifyMissing(interview.id)}
+                  sx={{
+                    backgroundColor: '#ed6c02',
+                    color: '#fff',
+                    '&:hover': { backgroundColor: '#d45d00' },
+                    borderRadius: '8px',
+                    minWidth: '40px',
+                    padding: '8px',
+                  }}
+                >
+                  <Warning />
+                </Button>
               </Tooltip>
               <Tooltip title="Отклонить кандидата">
-                <IconButton color="error" onClick={() => handleRejectCandidate(interview.id)}>
+                <Button
+                  onClick={() => handleRejectCandidate(interview.id)}
+                  sx={{
+                    backgroundColor: '#d32f2f',
+                    color: '#fff',
+                    '&:hover': { backgroundColor: '#b71c1c' },
+                    borderRadius: '8px',
+                    minWidth: '40px',
+                    padding: '8px',
+                  }}
+                >
                   <PersonRemove />
-                </IconButton>
+                </Button>
               </Tooltip>
               {documents[interview.id]?.length >= 9 &&
                 documents[interview.id].filter((doc) => documentTypes.slice(0, 9).includes(doc.document_type)).every((doc) => doc.status === 'ACCEPTED') && (
                   <Tooltip title="Подтвердить найм">
-                    <IconButton color="primary" onClick={() => handleConfirmHire(interview.id)}>
+                    <Button
+                      onClick={() => handleConfirmHire(interview.id)}
+                      sx={{
+                        backgroundColor: '#2e7d32',
+                        color: '#fff',
+                        '&:hover': { backgroundColor: '#1b5e20' },
+                        borderRadius: '8px',
+                        minWidth: '40px',
+                        padding: '8px',
+                      }}
+                    >
                       <PersonAdd />
-                    </IconButton>
+                    </Button>
                   </Tooltip>
                 )}
             </div>
           </div>
         ))
+      )}
+      {selectedDoc && (
+        <DocumentModal
+          open={openModal}
+          onClose={handleCloseModal}
+          document={selectedDoc}
+          onStatusUpdate={handleStatusUpdate}
+          isModerator={true}
+        />
       )}
     </div>
   );
