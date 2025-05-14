@@ -155,7 +155,7 @@ body {
 .table th,
 .table td {
   vertical-align: middle;
-  padding: 1rem;
+  padding: 0.75rem;
   border-color: #e5e7eb;
   font-size: 0.875rem;
 }
@@ -164,6 +164,25 @@ body {
   background-color: #f1f5f9;
   font-weight: 600;
   color: #1f2937;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.compact-table .badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.compact-table .MuiTextField-root {
+  font-size: 0.85rem;
+}
+
+.compact-table .MuiIconButton-root {
+  padding: 4px;
 }
 
 .footer {
@@ -399,9 +418,9 @@ body {
 .sidebar {
   width: 240px;
   background-color: #1e3a8a;
-  height: calc(100vh - 60px); /* Учитываем высоту навбара */
+  height: calc(100vh - 60px);
   position: fixed;
-  top: 60px; /* Сайдбар начинается ниже навбара */
+  top: 60px;
   left: 0;
   overflow-y: auto;
   z-index: 1000;
@@ -441,7 +460,7 @@ body {
 .main-content {
   margin-left: 240px;
   padding: 1rem;
-  padding-top: 70px; /* Учитываем высоту навбара */
+  padding-top: 70px;
 }
 
 .main-content.no-sidebar {

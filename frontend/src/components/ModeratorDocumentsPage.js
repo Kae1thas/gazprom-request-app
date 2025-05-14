@@ -2,8 +2,8 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
-import { Table, TableBody, TableCell, TableHead, TableRow, Button, TextField } from '@mui/material';
-import { Download, Check, Close, History, Warning } from '@mui/icons-material';
+import { Table, TableBody, TableCell, TableHead, TableRow, IconButton, TextField, Tooltip } from '@mui/material';
+import { Download, Check, Close, History, Warning, PersonAdd, PersonRemove } from '@mui/icons-material';
 
 const documentTypes = [
   'Паспорт',
@@ -99,7 +99,6 @@ const ModeratorDocumentsPage = () => {
         });
         return updatedDocs;
       });
-      // Обновляем историю
       if (showHistory === documentId) {
         fetchHistory(documentId);
       }
@@ -111,7 +110,7 @@ const ModeratorDocumentsPage = () => {
   const handleNotifyMissing = async (interviewId) => {
     const token = localStorage.getItem('token');
     const docs = documents[interviewId] || [];
-    const requiredTypes = documentTypes.slice(0, 9); // Исключаем трудовую книжку
+    const requiredTypes = documentTypes.slice(0, 9);
     const uploadedTypes = docs.map((doc) => doc.document_type);
     const missingTypes = requiredTypes.filter((type) => !uploadedTypes.includes(type));
     if (missingTypes.length === 0) {
@@ -194,14 +193,13 @@ const ModeratorDocumentsPage = () => {
             {(documents[interview.id] || []).length === 0 ? (
               <p>Документы не загружены.</p>
             ) : (
-              <Table className="table table-striped">
+              <Table className="table table-striped compact-table">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Тип документа</TableCell>
+                    <TableCell>Тип</TableCell>
                     <TableCell>Статус</TableCell>
                     <TableCell>Комментарий</TableCell>
-                    <TableCell>Действия</TableCell>
-                    <TableCell>История</TableCell>
+                    <TableCell align="center">Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -234,48 +232,41 @@ const ModeratorDocumentsPage = () => {
                               onChange={(e) => handleCommentChange(doc.id, e.target.value)}
                               fullWidth
                               multiline
-                              rows={2}
+                              rows={1}
+                              size="small"
                             />
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell align="center">
                           {doc && (
-                            <div className="d-flex gap-2">
-                              <Button
-                                variant="contained"
-                                startIcon={<Download />}
-                                onClick={() => handleDownload(doc.file_path)}
-                              >
-                                Скачать
-                              </Button>
-                              <Button
-                                variant="contained"
-                                color="success"
-                                startIcon={<Check />}
-                                onClick={() => handleStatusUpdate(doc.id, 'ACCEPTED')}
-                              >
-                                Принять
-                              </Button>
-                              <Button
-                                variant="contained"
-                                color="error"
-                                startIcon={<Close />}
-                                onClick={() => handleStatusUpdate(doc.id, 'REJECTED')}
-                              >
-                                Отклонить
-                              </Button>
+                            <div className="d-flex gap-1 justify-content-center">
+                              <Tooltip title="Скачать">
+                                <IconButton onClick={() => handleDownload(doc.file_path)}>
+                                  <Download fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Принять">
+                                <IconButton
+                                  color="success"
+                                  onClick={() => handleStatusUpdate(doc.id, 'ACCEPTED')}
+                                >
+                                  <Check fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Отклонить">
+                                <IconButton
+                                  color="error"
+                                  onClick={() => handleStatusUpdate(doc.id, 'REJECTED')}
+                                >
+                                  <Close fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={showHistory === doc.id ? 'Скрыть историю' : 'Показать историю'}>
+                                <IconButton onClick={() => toggleHistory(doc.id)}>
+                                  <History fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {doc && (
-                            <Button
-                              variant="outlined"
-                              startIcon={<History />}
-                              onClick={() => toggleHistory(doc.id)}
-                            >
-                              {showHistory === doc.id ? 'Скрыть' : 'Показать'}
-                            </Button>
                           )}
                         </TableCell>
                       </TableRow>
@@ -304,29 +295,23 @@ const ModeratorDocumentsPage = () => {
               </div>
             )}
             <div className="d-flex gap-2 mt-3">
-              <Button
-                variant="contained"
-                startIcon={<Warning />}
-                onClick={() => handleNotifyMissing(interview.id)}
-              >
-                Уведомить о недостающих
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={() => handleRejectCandidate(interview.id)}
-              >
-                Отклонить кандидата
-              </Button>
+              <Tooltip title="Уведомить о недостающих документах">
+                <IconButton onClick={() => handleNotifyMissing(interview.id)}>
+                  <Warning color="warning" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Отклонить кандидата">
+                <IconButton color="error" onClick={() => handleRejectCandidate(interview.id)}>
+                  <PersonRemove />
+                </IconButton>
+              </Tooltip>
               {documents[interview.id]?.length >= 9 &&
                 documents[interview.id].filter((doc) => documentTypes.slice(0, 9).includes(doc.document_type)).every((doc) => doc.status === 'ACCEPTED') && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleConfirmHire(interview.id)}
-                  >
-                    Подтвердить найм
-                  </Button>
+                  <Tooltip title="Подтвердить найм">
+                    <IconButton color="primary" onClick={() => handleConfirmHire(interview.id)}>
+                      <PersonAdd />
+                    </IconButton>
+                  </Tooltip>
                 )}
             </div>
           </div>

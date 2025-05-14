@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Button, Card } from '@mui/material';
+import { Table, TableBody, TableCell, TableRow, TableHead, IconButton, Tooltip } from '@mui/material';
 import { CloudUpload, Download, Refresh } from '@mui/icons-material';
 
 const documentTypes = [
@@ -125,75 +125,83 @@ const DocumentsPage = () => {
       <h1 className="mb-4">Документы</h1>
       <p>Загрузите до 10 документов для завершения процесса найма.</p>
       {error && <div className="alert alert-danger">{error}</div>}
-      <div className="row">
-        {Array.from({ length: 10 }, (_, index) => {
-          const slotNumber = index + 1;
-          const documentType = documentTypes[slotNumber - 1];
-          const doc = documents.find((d) => d.document_type === documentType);
-          return (
-            <div className="col-md-4 mb-4" key={slotNumber}>
-              <Card className="p-3">
-                <h5>Слот #{slotNumber}: {documentType}</h5>
-                {doc ? (
-                  <>
-                    <p>
-                      <strong>Статус:</strong>{' '}
-                      <span
-                        className={`badge ${
-                          doc.status === 'ACCEPTED'
-                            ? 'bg-success'
-                            : doc.status === 'REJECTED'
-                            ? 'bg-danger'
-                            : 'bg-warning'
-                        }`}
-                      >
-                        {doc.status_display}
-                      </span>
-                    </p>
-                    {doc.comment && (
-                      <p>
-                        <strong>Комментарий:</strong> {doc.comment}
-                      </p>
-                    )}
-                    <div className="d-flex gap-2">
+      <Table className="table table-striped compact-table">
+        <TableHead>
+          <TableRow>
+            <TableCell>Тип</TableCell>
+            <TableCell>Статус</TableCell>
+            <TableCell>Комментарий</TableCell>
+            <TableCell align="center">Действия</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {documentTypes.map((type, index) => {
+            const slotNumber = index + 1;
+            const doc = documents.find((d) => d.document_type === type);
+            return (
+              <TableRow key={slotNumber}>
+                <TableCell>{type}</TableCell>
+                <TableCell>
+                  {doc ? (
+                    <span
+                      className={`badge ${
+                        doc.status === 'ACCEPTED'
+                          ? 'bg-success'
+                          : doc.status === 'REJECTED'
+                          ? 'bg-danger'
+                          : 'bg-warning'
+                      }`}
+                    >
+                      {doc.status_display}
+                    </span>
+                  ) : (
+                    'Не загружен'
+                  )}
+                </TableCell>
+                <TableCell>{doc?.comment || ''}</TableCell>
+                <TableCell align="center">
+                  {doc ? (
+                    <div className="d-flex gap-1 justify-content-center">
                       {doc.file_path && (
-                        <Button
-                          variant="contained"
-                          startIcon={<Download />}
-                          onClick={() => handleDownload(doc.file_path)}
-                        >
-                          Скачать
-                        </Button>
+                        <Tooltip title="Скачать">
+                          <IconButton onClick={() => handleDownload(doc.file_path)}>
+                            <Download fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
                       {doc.status === 'REJECTED' && (
-                        <Button variant="contained" startIcon={<Refresh />} component="label">
-                          Перезагрузить
-                          <input
-                            type="file"
-                            hidden
-                            accept=".pdf,.doc,.docx"
-                            onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
-                          />
-                        </Button>
+                        <Tooltip title="Перезагрузить">
+                          <IconButton component="label">
+                            <Refresh fontSize="small" />
+                            <input
+                              type="file"
+                              hidden
+                              accept=".pdf,.doc,.docx"
+                              onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
+                            />
+                          </IconButton>
+                        </Tooltip>
                       )}
                     </div>
-                  </>
-                ) : (
-                  <Button variant="contained" startIcon={<CloudUpload />} component="label">
-                    Загрузить
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf,.doc,.docx"
-                      onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
-                    />
-                  </Button>
-                )}
-              </Card>
-            </div>
-          );
-        })}
-      </div>
+                  ) : (
+                    <Tooltip title="Загрузить">
+                      <IconButton component="label">
+                        <CloudUpload fontSize="small" />
+                        <input
+                          type="file"
+                          hidden
+                          accept=".pdf,.doc,.docx"
+                          onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
+                        />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 };
