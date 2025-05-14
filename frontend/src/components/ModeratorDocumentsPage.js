@@ -35,6 +35,7 @@ const ModeratorDocumentsPage = () => {
       return;
     }
 
+    setDocuments({}); // Очистка состояния
     const token = localStorage.getItem('token');
     axios
       .get('http://localhost:8000/api/interviews/', {
@@ -49,10 +50,15 @@ const ModeratorDocumentsPage = () => {
               headers: { Authorization: `Bearer ${token}` },
             })
             .then((docResponse) => {
-              setDocuments((prev) => ({
-                ...prev,
-                [interview.id]: docResponse.data,
-              }));
+              console.log(`Documents for interview ${interview.id}:`, docResponse.data);
+              setDocuments((prev) => {
+                const newDocs = { ...prev, [interview.id]: docResponse.data };
+                console.log('Updated documents state:', newDocs);
+                return newDocs;
+              });
+            })
+            .catch((err) => {
+              console.error(`Error fetching documents for interview ${interview.id}:`, err);
             });
         });
         setLoading(false);
@@ -116,6 +122,7 @@ const ModeratorDocumentsPage = () => {
   };
 
   const handleOpenModal = (doc) => {
+    console.log('Opening modal for document:', { id: doc.id, file_path: doc.file_path, document_type: doc.document_type, interview_id: doc.interview.id });
     setSelectedDoc(doc);
     setOpenModal(true);
   };
@@ -167,6 +174,7 @@ const ModeratorDocumentsPage = () => {
                 <TableBody>
                   {documentTypes.map((type) => {
                     const doc = (documents[interview.id] || []).find((d) => d.document_type === type);
+                    console.log(`Rendering document for type ${type} in interview ${interview.id}:`, doc);
                     return (
                       <TableRow key={type}>
                         <TableCell>{type}</TableCell>
@@ -192,7 +200,10 @@ const ModeratorDocumentsPage = () => {
                             <div className="d-flex gap-1 justify-content-center">
                               <Tooltip title="Просмотреть">
                                 <Button
-                                  onClick={() => handleOpenModal(doc)}
+                                  onClick={() => {
+                                    console.log(`Opening modal for document ID ${doc.id}: ${doc.file_path}`);
+                                    handleOpenModal(doc);
+                                  }}
                                   sx={{
                                     backgroundColor: '#1976d2',
                                     color: '#fff',
@@ -208,6 +219,7 @@ const ModeratorDocumentsPage = () => {
                               <Tooltip title="Скачать">
                                 <Button
                                   onClick={() => {
+                                    console.log(`Downloading document ID ${doc.id}: ${doc.file_path}`);
                                     const fullUrl = doc.file_path.startsWith('http')
                                       ? doc.file_path
                                       : `http://localhost:8000${doc.file_path}`;

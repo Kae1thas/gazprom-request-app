@@ -21,8 +21,8 @@ const Sidebar = () => {
 
   const moderatorMenuItems = [
     { path: '/home', label: 'Главная', icon: <Home /> },
-    { path: '/resumes', label: 'Резюме', icon: <Description /> },
-    { path: '/interviews', label: 'Собеседования', icon: <CalendarToday /> },
+    { path: '/resume', label: 'Резюме', icon: <Description /> },
+    { path: '/interview', label: 'Собеседования', icon: <CalendarToday /> },
     { path: '/documents/moderator', label: 'Документы', icon: <Assignment /> },
     { path: '/notifications', label: 'Уведомления', icon: <Notifications /> },
   ];

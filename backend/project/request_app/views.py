@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action
 from django.utils import timezone
 from rest_framework.response import Response
+import logging
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db import models
 from django.db.models import Q
@@ -15,6 +16,7 @@ from .serializers import (
     DocumentSerializer, EmployeeSerializer, DocumentHistorySerializer
 )
 from rest_framework_simplejwt.tokens import RefreshToken
+logger = logging.getLogger(__name__)
 
 class CandidateViewSet(viewsets.ModelViewSet):
     queryset = Candidate.objects.all()
@@ -237,14 +239,21 @@ class InterviewViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class DocumentViewSet(viewsets.ModelViewSet):
-    queryset = Document.objects.all()
     serializer_class = DocumentSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         if self.request.user.is_staff:
             return Document.objects.all()
         return Document.objects.filter(interview__candidate__user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        interview_id = request.query_params.get('interview')
+        if interview_id:
+            queryset = queryset.filter(interview_id=interview_id)
+            logger.info(f"Filtered documents for interview {interview_id}: {queryset.count()} documents")
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def create(self, request):
         try:
@@ -270,7 +279,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 )
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except IntegrityError as e:
-                return Response({'error': f'Ошибка: Документ этого типа уже загружен'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': f'Документ этого типа уже загружен для данного собеседования'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):

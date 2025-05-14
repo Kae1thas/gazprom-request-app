@@ -20,30 +20,33 @@ const DocumentModal = ({ open, onClose, document, onStatusUpdate, isModerator })
   const [comment, setComment] = useState(document.comment || '');
   const [history, setHistory] = useState([]);
 
-  useEffect(() => {
-    if (!open) return;
+useEffect(() => {
+  console.log('DocumentModal opened for document:', { id: document.id, file_path: document.file_path, document_type: document.document_type, interview_id: document.interview.id });
+  if (!open) return;
 
-    setComment(document.comment || '');
+  setComment(document.comment || '');
 
-    if (isModerator) {
-      const fetchHistory = async () => {
-        const token = localStorage.getItem('token');
-        try {
-          const response = await axios.get(`http://localhost:8000/api/documents/${document.id}/history/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          setHistory(response.data);
-        } catch (err) {
-          toast.error('Ошибка при загрузке истории документа');
-        }
-      };
-      fetchHistory();
-    } else {
-      setHistory([]);
-    }
-  }, [open, document.id, document.comment, isModerator]);
+  if (isModerator) {
+    const fetchHistory = async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const response = await axios.get(`http://localhost:8000/api/documents/${document.id}/history/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log(`History for document ${document.id}:`, response.data);
+        setHistory(response.data);
+      } catch (err) {
+        toast.error('Ошибка при загрузке истории документа');
+      }
+    };
+    fetchHistory();
+  } else {
+    setHistory([]);
+  }
+}, [open, document.id, document.comment, isModerator]);
 
   const handleDownload = () => {
+    console.log(`Downloading document ID ${document.id}: ${document.file_path}`);
     const fullUrl = document.file_path.startsWith('http') ? document.file_path : `http://localhost:8000${document.file_path}`;
     window.open(fullUrl, '_blank');
   };
