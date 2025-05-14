@@ -1,7 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+
 import uuid
+
+def candidate_document_path(instance, filename):
+    # Путь: media/candidate_<candidate_id>/filename
+    candidate_id = instance.interview.candidate.id
+    return f'candidate_{candidate_id}/{filename}'
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -148,7 +154,7 @@ class Interview(models.Model):
 class Document(models.Model):
     interview = models.ForeignKey(Interview, on_delete=models.CASCADE, related_name='documents')
     document_type = models.CharField(_('Тип документа'), max_length=100, choices=DocumentTypeChoices.choices)
-    file_path = models.FileField(_('Файл'), upload_to='documents/')
+    file_path = models.FileField(upload_to=candidate_document_path)
     uploaded_at = models.DateTimeField(_('Дата загрузки'), auto_now_add=True)
     status = models.CharField(_('Статус'), max_length=20, choices=DocumentStatusChoices.choices, default=DocumentStatusChoices.UPLOADED)
     comment = models.TextField(_('Комментарий'), max_length=500, blank=True, default='')
@@ -199,3 +205,4 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Уведомление {self.id} для {self.user.email}"
+
