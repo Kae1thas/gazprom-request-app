@@ -29,6 +29,15 @@ class CustomUserManager(BaseUserManager):
             raise ValueError(_('Суперпользователь должен иметь is_superuser=True'))
         return self.create_user(email, password, **extra_fields)
 
+class ResumeTypeChoices(models.TextChoices):
+    JOB = 'JOB', _('Работа')
+    PRACTICE = 'PRACTICE', _('Практика')
+
+class PracticeTypeChoices(models.TextChoices):
+    PRE_DIPLOMA = 'PRE_DIPLOMA', _('Преддипломная')
+    PRODUCTION = 'PRODUCTION', _('Производственная')
+    EDUCATIONAL = 'EDUCATIONAL', _('Учебная')
+
 class EducationChoices(models.TextChoices):
     SECONDARY = 'SECONDARY', _('Среднее')
     HIGHER = 'HIGHER', _('Высшее')
@@ -67,6 +76,8 @@ class DocumentTypeChoices(models.TextChoices):
     INN = 'ИНН', _('ИНН')
     SNILS = 'СНИЛС', _('СНИЛС')
     LABOR_BOOK = 'Трудовая книжка (опционально)', _('Трудовая книжка (опционально)')
+    PRACTICE_AGREEMENT = 'Договор о практике', _('Договор о практике')
+    PRACTICE_REQUEST = 'Заявление на практику', _('Заявление на практику')
 
 class GenderChoices(models.TextChoices):
     MALE = 'MALE', _('Мужской')
@@ -132,13 +143,15 @@ class Resume(models.Model):
     created_at = models.DateTimeField(_('Дата создания'), auto_now_add=True)
     status = models.CharField(_('Статус'), max_length=20, choices=ResumeStatusChoices.choices, default=ResumeStatusChoices.PENDING)
     comment = models.TextField(_('Комментарий'), max_length=500, blank=True, default='')
+    resume_type = models.CharField(_('Тип заявки'), max_length=20, choices=ResumeTypeChoices.choices, default=ResumeTypeChoices.JOB)
+    practice_type = models.CharField(_('Тип практики'), max_length=20, choices=PracticeTypeChoices.choices, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Резюме'
         verbose_name_plural = 'Резюме'
 
     def __str__(self):
-        return f"Резюме {self.id} от {self.candidate.user.email}"
+        return f"Резюме {self.id} ({self.get_resume_type_display()}) от {self.candidate.user.email}"
 
 class Interview(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='interviews')
@@ -147,6 +160,8 @@ class Interview(models.Model):
     status = models.CharField(_('Статус'), max_length=20, choices=InterviewStatusChoices.choices, default=InterviewStatusChoices.SCHEDULED)
     result = models.CharField(_('Результат'), max_length=20, choices=InterviewResultChoices.choices, default=InterviewResultChoices.PENDING)
     comment = models.TextField(blank=True)
+    resume_type = models.CharField(_('Тип заявки'), max_length=20, choices=ResumeTypeChoices.choices, default=ResumeTypeChoices.JOB)
+    practice_type = models.CharField(_('Тип практики'), max_length=20, choices=PracticeTypeChoices.choices, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Собеседование'
@@ -154,18 +169,16 @@ class Interview(models.Model):
         ordering = ['scheduled_at']
 
     def __str__(self):
-        return f"Собеседование {self.id} для {self.candidate.user.email}"
+        return f"Собеседование {self.id} ({self.get_resume_type_display()}) для {self.candidate.user.email}"
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Обновляем has_successful_interview в Candidate
         if self.result == 'SUCCESS':
             self.candidate.has_successful_interview = True
             self.candidate.save()
         elif self.result in ['FAILURE', 'PENDING']:
-            # Проверяем, есть ли другие успешные собеседования
             has_other_success = Interview.objects.filter(
-                candidate=self.candidate, result='SUCCESS'
+                candidate=self.candidate, result='SUCCESS', resume_type=self.resume_type
             ).exclude(id=self.id).exists()
             self.candidate.has_successful_interview = has_other_success
             self.candidate.save()

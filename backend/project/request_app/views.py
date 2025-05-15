@@ -122,7 +122,7 @@ class ResumeStatusUpdateView(APIView):
                 'ACCEPTED': 'Принято',
                 'REJECTED': 'Отклонено'
             }.get(resume.status, resume.status)
-            message = f'Статус вашего резюме #{resume.id} изменен на: {status_display}'
+            message = f'Статус вашего резюме #{resume.id} ({resume.get_resume_type_display()}) изменен на: {status_display}'
             if comment:
                 message += f'\nКомментарий: {comment}'
             Notification.objects.create(
@@ -210,7 +210,6 @@ class InterviewViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        # Логирование для отладки
         logger.info(f"Interview {instance.id} updated: result={instance.result}, candidate={instance.candidate.id}, has_successful_interview={instance.candidate.has_successful_interview}")
         return Response(serializer.data)
 
@@ -231,7 +230,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
             interview = serializer.save()
             Notification.objects.create(
                 user=interview.candidate.user,
-                message=f'Назначено собеседование #{interview.id} на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}'
+                message=f'Назначено собеседование #{interview.id} ({interview.get_resume_type_display()}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}'
             )
             return Response(InterviewSerializer(interview).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -367,7 +366,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             Document.objects.filter(interview=interview).delete()
             Notification.objects.create(
                 user=candidate.user,
-                message='Ваша кандидатура была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
+                message=f'Ваша кандидатура ({interview.get_resume_type_display()}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
             )
             return Response({'message': 'Кандидат отклонен'}, status=status.HTTP_200_OK)
         except Interview.DoesNotExist:
@@ -380,42 +379,62 @@ class DocumentViewSet(viewsets.ModelViewSet):
             interview = Interview.objects.get(id=interview_id, result='SUCCESS')
             documents = Document.objects.filter(interview=interview)
             candidate = interview.candidate
+            resume_type = interview.resume_type
             is_male = candidate.user.gender == 'MALE'
-            required_types = [
-                'Паспорт',
-                'Аттестат/Диплом',
-                'Справка с психодиспансера',
-                'Справка с наркодиспансера',
-                'Справка о несудимости',
-                'Согласие на обработку персональных данных',
-                'ИНН',
-                'СНИЛС'
-            ]
-            if is_male:
-                required_types.append('Приписное/Военник')
+
+            # Определяем обязательные документы в зависимости от типа заявки
+            if resume_type == 'JOB':
+                required_types = [
+                    'Паспорт',
+                    'Аттестат/Диплом',
+                    'Справка с психодиспансера',
+                    'Справка с наркодиспансера',
+                    'Справка о несудимости',
+                    'Согласие на обработку персональных данных',
+                    'ИНН',
+                    'СНИЛС'
+                ]
+                if is_male:
+                    required_types.append('Приписное/Военник')
+            else:  # PRACTICE
+                required_types = [
+                    'Паспорт',
+                    'Аттестат/Диплом',
+                    'Согласие на обработку персональных данных',
+                    'Договор о практике',
+                    'Заявление на практику'
+                ]
+
             uploaded_types = [doc.document_type for doc in documents]
             missing_types = [t for t in required_types if t not in uploaded_types]
             if missing_types:
                 return Response({'error': f'Отсутствуют документы: {", ".join(missing_types)}'}, status=status.HTTP_400_BAD_REQUEST)
             if not all(doc.status == 'ACCEPTED' for doc in documents if doc.document_type in required_types):
                 return Response({'error': 'Все обязательные документы должны быть приняты'}, status=status.HTTP_400_BAD_REQUEST)
-            try:
-                Employee.objects.get(user=candidate.user)
-                return Response({'error': 'Пользователь уже является сотрудником'}, status=status.HTTP_400_BAD_REQUEST)
-            except Employee.DoesNotExist:
-                Employee.objects.create(
-                    user=candidate.user,
-                    department='Не указано',
-                    position='Не указано',
-                    hire_date=timezone.now().date()
-                )
+
+            if resume_type == 'JOB':
+                try:
+                    Employee.objects.get(user=candidate.user)
+                    return Response({'error': 'Пользователь уже является сотрудником'}, status=status.HTTP_400_BAD_REQUEST)
+                except Employee.DoesNotExist:
+                    Employee.objects.create(
+                        user=candidate.user,
+                        department='Не указано',
+                        position='Не указано',
+                        hire_date=timezone.now().date()
+                    )
+                    message = 'Поздравляем! Вы приняты на работу.'
+            else:  # PRACTICE
+                # Здесь можно добавить логику для записи данных о практике, если требуется
+                message = f'Поздравляем! Вы приняты на {interview.get_practice_type_display()} практику.'
+
             candidate.has_successful_interview = False
             candidate.save()
             Notification.objects.create(
                 user=candidate.user,
-                message='Поздравляем! Вы приняты на работу.'
+                message=message
             )
-            return Response({'message': 'Кандидат успешно принят на работу'}, status=status.HTTP_200_OK)
+            return Response({'message': f'Кандидат успешно принят на {resume_type.lower()}'}, status=status.HTTP_200_OK)
         except Interview.DoesNotExist:
             return Response({'error': 'Собеседование не найдено'}, status=status.HTTP_404_NOT_FOUND)
 

@@ -7,13 +7,16 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [interviewLoading, setInterviewLoading] = useState(true);
-  const [hasSuccessfulInterview, setHasSuccessfulInterview] = useState(false);
+  const [hasSuccessfulInterview, setHasSuccessfulInterview] = useState({
+    JOB: false,
+    PRACTICE: false,
+  });
 
   const fetchUser = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
       setUser(null);
-      setHasSuccessfulInterview(false);
+      setHasSuccessfulInterview({ JOB: false, PRACTICE: false });
       setLoading(false);
       setInterviewLoading(false);
       return;
@@ -31,40 +34,36 @@ export const AuthProvider = ({ children }) => {
         isSuperuser: response.data.is_superuser,
         candidate: response.data.candidate,
         employee: response.data.employee,
-        gender: userData.gender, // Добавляем поле gender
+        gender: userData.gender,
       };
       setUser(newUser);
 
       if (response.data.candidate) {
         setInterviewLoading(true);
-        const hasSuccessFromApi = response.data.candidate.has_successful_interview;
-        setHasSuccessfulInterview(hasSuccessFromApi);
-
         try {
           const interviewResponse = await axios.get('http://localhost:8000/api/interviews/my/', {
             headers: { Authorization: `Bearer ${token}` },
           });
-          const hasSuccessFromInterviews = interviewResponse.data.some((i) => i.result === 'SUCCESS');
-          if (hasSuccessFromInterviews !== hasSuccessFromApi) {
-            setHasSuccessfulInterview(hasSuccessFromInterviews);
-            console.warn(
-              `Mismatch in hasSuccessfulInterview: API says ${hasSuccessFromApi}, interviews say ${hasSuccessFromInterviews}`
-            );
-          }
+          const hasSuccess = {
+            JOB: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume_type === 'JOB'),
+            PRACTICE: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume_type === 'PRACTICE'),
+          };
+          setHasSuccessfulInterview(hasSuccess);
         } catch (interviewErr) {
           console.error('Ошибка при загрузке собеседований:', interviewErr.response?.data);
+          setHasSuccessfulInterview({ JOB: false, PRACTICE: false });
         } finally {
           setInterviewLoading(false);
         }
       } else {
-        setHasSuccessfulInterview(false);
+        setHasSuccessfulInterview({ JOB: false, PRACTICE: false });
         setInterviewLoading(false);
       }
     } catch (err) {
       console.error('Ошибка при загрузке профиля:', err.response?.data);
       localStorage.removeItem('token');
       setUser(null);
-      setHasSuccessfulInterview(false);
+      setHasSuccessfulInterview({ JOB: false, PRACTICE: false });
       setInterviewLoading(false);
     } finally {
       setLoading(false);
@@ -90,7 +89,7 @@ export const AuthProvider = ({ children }) => {
         isSuperuser: userResponse.data.is_superuser,
         candidate: userResponse.data.candidate,
         employee: userResponse.data.employee,
-        gender: userData.gender, // Добавляем поле gender
+        gender: userData.gender,
       });
 
       if (userResponse.data.candidate) {
@@ -99,15 +98,18 @@ export const AuthProvider = ({ children }) => {
           const interviewResponse = await axios.get('http://localhost:8000/api/interviews/my/', {
             headers: { Authorization: `Bearer ${response.data.access}` },
           });
-          setHasSuccessfulInterview(interviewResponse.data.some((i) => i.result === 'SUCCESS'));
+          setHasSuccessfulInterview({
+            JOB: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume_type === 'JOB'),
+            PRACTICE: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume_type === 'PRACTICE'),
+          });
         } catch (interviewErr) {
           console.error('Ошибка при загрузке собеседований:', interviewErr.response?.data);
-          setHasSuccessfulInterview(userResponse.data.candidate?.has_successful_interview || false);
+          setHasSuccessfulInterview({ JOB: false, PRACTICE: false });
         } finally {
           setInterviewLoading(false);
         }
       } else {
-        setHasSuccessfulInterview(false);
+        setHasSuccessfulInterview({ JOB: false, PRACTICE: false });
         setInterviewLoading(false);
       }
       return true;
@@ -119,7 +121,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    setHasSuccessfulInterview(false);
+    setHasSuccessfulInterview({ JOB: false, PRACTICE: false });
     setLoading(false);
     setInterviewLoading(false);
   };

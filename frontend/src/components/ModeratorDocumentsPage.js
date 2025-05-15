@@ -128,7 +128,7 @@ const ModeratorDocumentsPage = () => {
         { interview_id: interviewId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success(response.data.message || 'Кандидат успешно принят на работу!');
+      toast.success(response.data.message || 'Кандидат успешно принят на работу или практику!');
       setInterviews((prev) => prev.filter((i) => i.id !== interviewId));
     } catch (err) {
       toast.error(err.response?.data?.error || 'Ошибка при подтверждении найма');
@@ -164,7 +164,6 @@ const ModeratorDocumentsPage = () => {
   const filteredInterviews = useMemo(() => {
     let result = [...interviews];
     
-    // Поиск
     if (searchQuery) {
       result = result.filter((interview) =>
         `${interview.candidate.user.last_name} ${interview.candidate.user.first_name}`
@@ -173,7 +172,6 @@ const ModeratorDocumentsPage = () => {
       );
     }
 
-    // Сортировка
     result.sort((a, b) => {
       if (sortBy === 'id') {
         return sortOrder === 'asc' ? a.id - b.id : b.id - a.id;
@@ -199,7 +197,6 @@ const ModeratorDocumentsPage = () => {
     <Box className="container mx-auto mt-5 pl-64 pt-20">
       <Typography variant="h4" className="mb-4">Управление документами</Typography>
       
-      {/* Поиск и сортировка */}
       <Box className="flex gap-4 mb-4">
         <TextField
           label="Поиск по имени кандидата"
@@ -245,6 +242,14 @@ const ModeratorDocumentsPage = () => {
                   Собеседование #{interview.id} - Кандидат: {interview.candidate.user.last_name}{' '}
                   {interview.candidate.user.first_name}
                 </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Тип заявки: {interview.resume_type === 'JOB' ? 'Работа' : 'Практика'}
+                </Typography>
+                {interview.resume_type === 'PRACTICE' && (
+                  <Typography variant="body2" color="text.secondary">
+                    Тип практики: {interview.practice_type_display || '-'}
+                  </Typography>
+                )}
                 <Typography variant="body2" color="text.secondary">
                   Дата: {formatDate(interview.scheduled_at)}
                 </Typography>

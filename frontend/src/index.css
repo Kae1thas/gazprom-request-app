@@ -541,3 +541,29 @@ body {
 .notification-item small {
   color: #6b7280;
 }
+
+.form-select-type {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.form-select-type:focus {
+  border-color: #1e3a8a;
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+  outline: none;
+}
+
+.form-select-type.is-invalid {
+  border-color: #dc2626;
+}
+
+/* Стили для меток */
+.form-label-type {
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}

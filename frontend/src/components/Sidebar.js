@@ -14,7 +14,9 @@ const Sidebar = () => {
     { path: '/home', label: 'Главная', icon: <Home /> },
     { path: '/resume', label: 'Моё резюме', icon: <Description /> },
     { path: '/interview', label: 'Собеседование', icon: <CalendarToday /> },
-    ...(hasSuccessfulInterview ? [{ path: '/documents', label: 'Документы', icon: <AttachFile /> }] : []),
+    ...(hasSuccessfulInterview.JOB || hasSuccessfulInterview.PRACTICE
+      ? [{ path: '/documents', label: 'Документы', icon: <AttachFile /> }]
+      : []),
     { path: '/notifications', label: 'Уведомления', icon: <Notifications /> },
     { path: '/final-status', label: 'Финальный статус', icon: <CheckCircle /> },
   ];
@@ -35,7 +37,6 @@ const Sidebar = () => {
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <div className="sidebar d-none d-md-block">
         <div className="sidebar-header">
           <h4 className="text-white p-3"> </h4>
@@ -56,7 +57,6 @@ const Sidebar = () => {
         </ul>
       </div>
 
-      {/* Mobile Offcanvas Sidebar */}
       <div className="d-md-none">
         <button className="btn btn-primary hamburger" onClick={toggleSidebar}>
           ☰

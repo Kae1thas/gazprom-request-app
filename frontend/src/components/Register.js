@@ -110,7 +110,7 @@ const Register = () => {
               id="date_of_birth"
               {...register('date_of_birth', {
                 validate: (value) => {
-                  if (!value) return true; // Поле необязательное
+                  if (!value) return true;
                   const today = new Date();
                   const birthDate = new Date(value);
                   if (birthDate > today) {

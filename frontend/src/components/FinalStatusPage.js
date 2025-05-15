@@ -52,18 +52,19 @@ const FinalStatusPage = () => {
     const acceptedResume = resumes.find((r) => r.status === 'ACCEPTED');
     const successfulInterview = interviews.find((i) => i.result === 'SUCCESS');
     const allDocumentsAccepted =
-      documents.length === 10 && documents.every((d) => d.status === 'ACCEPTED');
+      documents.length >= (user.gender === 'MALE' ? 9 : 8) &&
+      documents.every((d) => d.status === 'ACCEPTED');
 
     if (user.employee) {
       return {
         status: 'Принят',
-        message: 'Поздравляем! Вы приняты на работу.',
+        message: 'Поздравляем! Вы приняты на работу или практику.',
         className: 'bg-success',
       };
     } else if (allDocumentsAccepted) {
       return {
         status: 'Ожидание подтверждения',
-        message: 'Все документы приняты, ожидайте подтверждения найма.',
+        message: 'Все документы приняты, ожидайте подтверждения найма или практики.',
         className: 'bg-warning',
       };
     } else if (successfulInterview) {
@@ -110,7 +111,7 @@ const FinalStatusPage = () => {
             <ul>
               {resumes.map((resume) => (
                 <li key={resume.id}>
-                  Резюме #{resume.id} - Статус: {resume.status_display}
+                  Резюме #{resume.id} - Тип: {resume.resume_type === 'JOB' ? 'Работа' : `Практика (${resume.practice_type_display || '-'})`} - Статус: {resume.status_display}
                   {resume.comment && <span> (Комментарий: {resume.comment})</span>}
                 </li>
               ))}
@@ -140,7 +141,7 @@ const FinalStatusPage = () => {
             <ul>
               {documents.map((doc) => (
                 <li key={doc.id}>
-                  Документ #{doc.id} - Статус: {doc.status_display}
+                  Документ #{doc.id} - Тип: {doc.document_type} - Статус: {doc.status_display}
                   {doc.comment && <span> (Комментарий: {doc.comment})</span>}
                 </li>
               ))}

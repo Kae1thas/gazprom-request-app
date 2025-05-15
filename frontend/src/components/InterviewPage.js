@@ -19,6 +19,8 @@ const InterviewPage = () => {
   const [employees, setEmployees] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedResumeType, setSelectedResumeType] = useState('JOB');
+  const [selectedPracticeType, setSelectedPracticeType] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
 
   useEffect(() => {
@@ -85,6 +87,8 @@ const InterviewPage = () => {
     setShowCreateModal(true);
     setSelectedCandidate(null);
     setSelectedEmployee(null);
+    setSelectedResumeType('JOB');
+    setSelectedPracticeType('');
     setScheduledAt('');
   };
 
@@ -92,6 +96,8 @@ const InterviewPage = () => {
     setShowCreateModal(false);
     setSelectedCandidate(null);
     setSelectedEmployee(null);
+    setSelectedResumeType('JOB');
+    setSelectedPracticeType('');
     setScheduledAt('');
   };
 
@@ -99,7 +105,13 @@ const InterviewPage = () => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     if (!selectedCandidate || !selectedEmployee || !scheduledAt) {
-      const errorMsg = 'Заполните все поля';
+      const errorMsg = 'Заполните все обязательные поля';
+      setError(errorMsg);
+      toast.error(errorMsg);
+      return;
+    }
+    if (selectedResumeType === 'PRACTICE' && !selectedPracticeType) {
+      const errorMsg = 'Выберите тип практики';
       setError(errorMsg);
       toast.error(errorMsg);
       return;
@@ -109,8 +121,9 @@ const InterviewPage = () => {
       candidate: selectedCandidate.value,
       employee: selectedEmployee.value,
       scheduled_at: new Date(scheduledAt).toISOString(),
+      resume_type: selectedResumeType,
+      ...(selectedResumeType === 'PRACTICE' && { practice_type: selectedPracticeType }),
     };
-    console.log('Sending payload:', payload);
 
     try {
       const response = await axios.post(
@@ -122,13 +135,13 @@ const InterviewPage = () => {
       toast.success('Собеседование успешно назначено!');
       handleCloseCreateModal();
     } catch (err) {
-      console.error('Error response:', err.response);
       const errorMsg = (
         err.response?.data?.non_field_errors ||
         err.response?.data?.scheduled_at ||
         err.response?.data?.candidate ||
         err.response?.data?.employee ||
-        err.response?.data?.error ||
+        err.response?.data?.resume_type ||
+        err.response?.data?.practice_type ||
         'Ошибка при назначении собеседования'
       );
       const displayMsg = Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg;
@@ -151,7 +164,6 @@ const InterviewPage = () => {
         )
       );
       toast.success(`Статус собеседования обновлён: ${newStatus}`);
-      // Повторно запрашиваем данные пользователя для синхронизации hasSuccessfulInterview
       await fetchUser();
       handleCloseViewModal();
     } catch (err) {
@@ -209,6 +221,8 @@ const InterviewPage = () => {
                 <tr>
                   <th>Кандидат</th>
                   <th>Сотрудник</th>
+                  <th>Тип заявки</th>
+                  <th>Тип практики</th>
                   <th>Дата и время</th>
                   <th>Статус</th>
                   <th>Результат</th>
@@ -232,6 +246,8 @@ const InterviewPage = () => {
                           }`.trim()
                         : 'Сотрудник не указан'}
                     </td>
+                    <td>{interview.resume_type === 'JOB' ? 'Работа' : 'Практика'}</td>
+                    <td>{interview.practice_type_display || '-'}</td>
                     <td>{new Date(interview.scheduled_at).toLocaleString()}</td>
                     <td>
                       <span
@@ -312,6 +328,14 @@ const InterviewPage = () => {
                   <p>
                     <strong>Должность:</strong> {interviewToView.employee?.position || 'Не указана'}
                   </p>
+                  <p>
+                    <strong>Тип заявки:</strong> {interviewToView.resume_type === 'JOB' ? 'Работа' : 'Практика'}
+                  </p>
+                  {interviewToView.resume_type === 'PRACTICE' && (
+                    <p>
+                      <strong>Тип практики:</strong> {interviewToView.practice_type_display || '-'}
+                    </p>
+                  )}
                   <p>
                     <strong>Дата и время:</strong> {new Date(interviewToView.scheduled_at).toLocaleString()}
                   </p>
@@ -417,6 +441,48 @@ const InterviewPage = () => {
                     isClearable
                   />
                 </div>
+                <div className="mb-3">
+                  <label htmlFor="resumeTypeSelect" className="form-label">Тип заявки</label>
+                  <Select
+                    id="resumeTypeSelect"
+                    options={[
+                      { value: 'JOB', label: 'Работа' },
+                      { value: 'PRACTICE', label: 'Практика' },
+                    ]}
+                    value={{ value: selectedResumeType, label: selectedResumeType === 'JOB' ? 'Работа' : 'Практика' }}
+                    onChange={(option) => setSelectedResumeType(option.value)}
+                    placeholder="Выберите тип заявки"
+                  />
+                </div>
+                {selectedResumeType === 'PRACTICE' && (
+                  <div className="mb-3">
+                    <label htmlFor="practiceTypeSelect" className="form-label">Тип практики</label>
+                    <Select
+                      id="practiceTypeSelect"
+                      options={[
+                        { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
+                        { value: 'PRODUCTION', label: 'Производственная' },
+                        { value: 'EDUCATIONAL', label: 'Учебная' },
+                      ]}
+                      value={
+                        selectedPracticeType
+                          ? {
+                              value: selectedPracticeType,
+                              label:
+                                selectedPracticeType === 'PRE_DIPLOMA'
+                                  ? 'Преддипломная'
+                                  : selectedPracticeType === 'PRODUCTION'
+                                  ? 'Производственная'
+                                  : 'Учебная',
+                            }
+                          : null
+                      }
+                      onChange={(option) => setSelectedPracticeType(option.value)}
+                      placeholder="Выберите тип практики"
+                      isClearable
+                    />
+                  </div>
+                )}
                 <div className="mb-3">
                   <label htmlFor="scheduledAt" className="form-label">Дата и время</label>
                   <input

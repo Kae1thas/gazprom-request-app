@@ -36,7 +36,7 @@ const DocumentsPage = () => {
       return;
     }
 
-    if (!hasSuccessfulInterview) {
+    if (!hasSuccessfulInterview.JOB && !hasSuccessfulInterview.PRACTICE) {
       setError('У вас нет успешного собеседования для загрузки документов');
       return;
     }
@@ -121,7 +121,7 @@ const DocumentsPage = () => {
     return <Navigate to="/login" />;
   }
 
-  if (!hasSuccessfulInterview) {
+  if (!hasSuccessfulInterview.JOB && !hasSuccessfulInterview.PRACTICE) {
     return (
       <div className="container mt-5 alert alert-danger">
         У вас нет успешного собеседования для загрузки документов.{' '}
@@ -135,7 +135,7 @@ const DocumentsPage = () => {
   return (
     <div className="container mt-5">
       <h1 className="mb-4">Документы</h1>
-      <p>Загрузите до 10 документов для завершения процесса найма.</p>
+      <p>Загрузите необходимые документы для завершения процесса найма или практики.</p>
       {error && <div className="alert alert-danger">{error}</div>}
       <Table className="table table-striped compact-table">
         <TableHead>
