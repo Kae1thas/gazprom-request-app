@@ -17,13 +17,17 @@ const Register = () => {
       navigate('/login');
     } catch (err) {
       console.error('Ошибка регистрации:', err.response?.data);
-      setError(err.response?.data?.email || 'Ошибка регистрации');
+      const errorMessage = err.response?.data?.email ||
+                          err.response?.data?.gender ||
+                          err.response?.data?.date_of_birth ||
+                          'Ошибка регистрации';
+      setError(errorMessage);
     }
   };
 
   return (
     <div className="container mt-5">
-      <div className="card shadow-sm">
+      <div className="card shadow-sm p-4">
         <h2 className="text-center mb-4">Регистрация</h2>
         {error && <div className="alert alert-danger">{error}</div>}
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -84,6 +88,39 @@ const Register = () => {
               placeholder="Введите отчество"
               {...register('patronymic')}
             />
+          </div>
+          <div className="mb-3">
+            <label htmlFor="gender" className="form-label">Пол</label>
+            <select
+              className={`form-control ${errors.gender ? 'is-invalid' : ''}`}
+              id="gender"
+              {...register('gender', { required: 'Пол обязателен' })}
+            >
+              <option value="">Выберите пол</option>
+              <option value="MALE">Мужской</option>
+              <option value="FEMALE">Женский</option>
+            </select>
+            {errors.gender && <div className="invalid-feedback">{errors.gender.message}</div>}
+          </div>
+          <div className="mb-3">
+            <label htmlFor="date_of_birth" className="form-label">Дата рождения</label>
+            <input
+              type="date"
+              className={`form-control ${errors.date_of_birth ? 'is-invalid' : ''}`}
+              id="date_of_birth"
+              {...register('date_of_birth', {
+                validate: (value) => {
+                  if (!value) return true; // Поле необязательное
+                  const today = new Date();
+                  const birthDate = new Date(value);
+                  if (birthDate > today) {
+                    return 'Дата рождения не может быть в будущем';
+                  }
+                  return true;
+                }
+              })}
+            />
+            {errors.date_of_birth && <div className="invalid-feedback">{errors.date_of_birth.message}</div>}
           </div>
           <button type="submit" className="btn btn-primary w-100" title="Зарегистрироваться">Зарегистрироваться</button>
         </form>

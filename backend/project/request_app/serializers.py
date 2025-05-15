@@ -1,13 +1,14 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Candidate, Resume, Notification, Interview, Document, Employee, DocumentHistory, DocumentTypeChoices
+from .models import User, Candidate, Resume, Notification, Interview, Document, Employee, DocumentHistory, DocumentTypeChoices, GenderChoices
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
+    gender = serializers.ChoiceField(choices=GenderChoices.choices, required=True)
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'patronymic', 'password']
+        fields = ['id', 'email', 'first_name', 'last_name', 'patronymic', 'password', 'gender']
         read_only_fields = ['id']
 
     def create(self, validated_data):
@@ -16,7 +17,8 @@ class UserSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
-            patronymic=validated_data.get('patronymic', '')
+            patronymic=validated_data.get('patronymic', ''),
+            gender=validated_data['gender']
         )
         return user
 

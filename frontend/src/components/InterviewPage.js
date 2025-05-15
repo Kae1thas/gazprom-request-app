@@ -2,13 +2,13 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
-import { Navigate } from 'react-router-dom'; // Добавлено для перенаправления
+import { Navigate } from 'react-router-dom';
 import { Button } from '@mui/material';
 import { FaEye } from 'react-icons/fa';
 import Select from 'react-select';
 
 const InterviewPage = () => {
-  const { user, loading } = useContext(AuthContext); // Используем loading из AuthContext
+  const { user, loading, fetchUser } = useContext(AuthContext);
   const [interviews, setInterviews] = useState([]);
   const [error, setError] = useState('');
   const [showViewModal, setShowViewModal] = useState(false);
@@ -22,10 +22,8 @@ const InterviewPage = () => {
   const [scheduledAt, setScheduledAt] = useState('');
 
   useEffect(() => {
-    // Если данные еще загружаются, ничего не делаем
     if (loading) return;
 
-    // Если пользователь не авторизован, устанавливаем ошибку (для отладки, позже перенаправим)
     if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть собеседования');
       return;
@@ -69,7 +67,7 @@ const InterviewPage = () => {
       }
     };
     fetchData();
-  }, [user, loading]); // Добавляем loading в зависимости
+  }, [user, loading]);
 
   const handleOpenViewModal = (interview) => {
     setInterviewToView(interview);
@@ -153,6 +151,8 @@ const InterviewPage = () => {
         )
       );
       toast.success(`Статус собеседования обновлён: ${newStatus}`);
+      // Повторно запрашиваем данные пользователя для синхронизации hasSuccessfulInterview
+      await fetchUser();
       handleCloseViewModal();
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Ошибка при обновлении статуса';
@@ -161,7 +161,6 @@ const InterviewPage = () => {
     }
   };
 
-  // Форматирование текущей даты для min атрибута datetime-local
   const getCurrentDateTime = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -172,7 +171,6 @@ const InterviewPage = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Если данные загружаются, показываем спиннер
   if (loading) {
     return (
       <div className="container mt-5 text-center">
@@ -183,7 +181,6 @@ const InterviewPage = () => {
     );
   }
 
-  // Если пользователь нет авторизован, перенаправляем на страницу логина
   if (!user) {
     return <Navigate to="/login" />;
   }

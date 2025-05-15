@@ -73,6 +73,7 @@ class MeView(APIView):
         try:
             candidate = Candidate.objects.get(user=user)
             response_data['candidate'] = CandidateSerializer(candidate).data
+            logger.info(f"MeView: Candidate {candidate.id} has_successful_interview={candidate.has_successful_interview}")
         except Candidate.DoesNotExist:
             response_data['candidate'] = None
         try:
@@ -204,6 +205,15 @@ class InterviewViewSet(viewsets.ModelViewSet):
             return InterviewCreateSerializer
         return InterviewSerializer
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        # Логирование для отладки
+        logger.info(f"Interview {instance.id} updated: result={instance.result}, candidate={instance.candidate.id}, has_successful_interview={instance.candidate.has_successful_interview}")
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def my(self, request):
         try:
@@ -259,6 +269,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         try:
             candidate = Candidate.objects.get(user=request.user)
             interview = Interview.objects.filter(candidate=candidate, result='SUCCESS').first()
+            logger.info(f"DocumentViewSet.create: Candidate {candidate.id}, has_successful_interview={candidate.has_successful_interview}, found interview={interview.id if interview else None}")
             if not interview:
                 return Response({'error': 'У вас нет успешного собеседования для загрузки документов'}, status=status.HTTP_403_FORBIDDEN)
         except Candidate.DoesNotExist:
@@ -368,25 +379,36 @@ class DocumentViewSet(viewsets.ModelViewSet):
         try:
             interview = Interview.objects.get(id=interview_id, result='SUCCESS')
             documents = Document.objects.filter(interview=interview)
+            candidate = interview.candidate
+            is_male = candidate.user.gender == 'MALE'
             required_types = [
-                'Паспорт', 'Приписное/Военник', 'Аттестат/Диплом',
-                'Справка с психодиспансера', 'Справка с наркодиспансера',
-                'Справка о несудимости', 'Согласие на обработку персональных данных',
-                'ИНН', 'СНИЛС'
+                'Паспорт',
+                'Аттестат/Диплом',
+                'Справка с психодиспансера',
+                'Справка с наркодиспансера',
+                'Справка о несудимости',
+                'Согласие на обработку персональных данных',
+                'ИНН',
+                'СНИЛС'
             ]
+            if is_male:
+                required_types.append('Приписное/Военник')
             uploaded_types = [doc.document_type for doc in documents]
             missing_types = [t for t in required_types if t not in uploaded_types]
             if missing_types:
                 return Response({'error': f'Отсутствуют документы: {", ".join(missing_types)}'}, status=status.HTTP_400_BAD_REQUEST)
             if not all(doc.status == 'ACCEPTED' for doc in documents if doc.document_type in required_types):
                 return Response({'error': 'Все обязательные документы должны быть приняты'}, status=status.HTTP_400_BAD_REQUEST)
-            candidate = interview.candidate
-            Employee.objects.create(
-                user=candidate.user,
-                department='Не указано',
-                position='Не указано',
-                hire_date=timezone.now().date()
-            )
+            try:
+                Employee.objects.get(user=candidate.user)
+                return Response({'error': 'Пользователь уже является сотрудником'}, status=status.HTTP_400_BAD_REQUEST)
+            except Employee.DoesNotExist:
+                Employee.objects.create(
+                    user=candidate.user,
+                    department='Не указано',
+                    position='Не указано',
+                    hire_date=timezone.now().date()
+                )
             candidate.has_successful_interview = False
             candidate.save()
             Notification.objects.create(

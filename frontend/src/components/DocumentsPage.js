@@ -9,7 +9,6 @@ import DocumentModal from './DocumentModal';
 
 const documentTypes = [
   'Паспорт',
-  'Приписное/Военник',
   'Аттестат/Диплом',
   'Справка с психодиспансера',
   'Справка с наркодиспансера',
@@ -26,6 +25,8 @@ const DocumentsPage = () => {
   const [error, setError] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+
+  const effectiveDocumentTypes = user?.gender === 'MALE' ? ['Приписное/Военник', ...documentTypes] : documentTypes;
 
   useEffect(() => {
     if (loading || interviewLoading) return;
@@ -62,7 +63,7 @@ const DocumentsPage = () => {
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file_path', file);
-    const documentType = documentTypes[slot - 1];
+    const documentType = effectiveDocumentTypes[slot - 1];
     formData.append('document_type', documentType);
 
     try {
@@ -145,7 +146,7 @@ const DocumentsPage = () => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {documentTypes.map((type, index) => {
+          {effectiveDocumentTypes.map((type, index) => {
             const slotNumber = index + 1;
             const doc = documents.find((d) => d.document_type === type);
             return (

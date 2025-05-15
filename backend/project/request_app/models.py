@@ -68,16 +68,21 @@ class DocumentTypeChoices(models.TextChoices):
     SNILS = 'СНИЛС', _('СНИЛС')
     LABOR_BOOK = 'Трудовая книжка (опционально)', _('Трудовая книжка (опционально)')
 
+class GenderChoices(models.TextChoices):
+    MALE = 'MALE', _('Мужской')
+    FEMALE = 'FEMALE', _('Женский')
+
 class User(AbstractUser):
     email = models.EmailField(_('Электронная почта'), unique=True, blank=False)
     last_name = models.CharField(_('Фамилия'), max_length=150, blank=True)
     first_name = models.CharField(_('Имя'), max_length=150, blank=True)
     patronymic = models.CharField(_('Отчество'), max_length=150, blank=True)
+    gender = models.CharField(_('Пол'), max_length=10, choices=GenderChoices.choices, blank=True)
 
     objects = CustomUserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ['gender']
 
     class Meta:
         verbose_name = 'Пользователь'
@@ -151,6 +156,20 @@ class Interview(models.Model):
     def __str__(self):
         return f"Собеседование {self.id} для {self.candidate.user.email}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Обновляем has_successful_interview в Candidate
+        if self.result == 'SUCCESS':
+            self.candidate.has_successful_interview = True
+            self.candidate.save()
+        elif self.result in ['FAILURE', 'PENDING']:
+            # Проверяем, есть ли другие успешные собеседования
+            has_other_success = Interview.objects.filter(
+                candidate=self.candidate, result='SUCCESS'
+            ).exclude(id=self.id).exists()
+            self.candidate.has_successful_interview = has_other_success
+            self.candidate.save()
+
 class Document(models.Model):
     interview = models.ForeignKey(Interview, on_delete=models.CASCADE, related_name='documents')
     document_type = models.CharField(_('Тип документа'), max_length=100, choices=DocumentTypeChoices.choices)
@@ -205,4 +224,3 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Уведомление {self.id} для {self.user.email}"
-

@@ -2,13 +2,13 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
-import { Navigate } from 'react-router-dom'; // Добавлено для перенаправления
+import { Navigate } from 'react-router-dom';
 import Select from 'react-select';
 import { IMaskInput } from 'react-imask';
 import { FaEye, FaEdit, FaTrash } from 'react-icons/fa';
 
 const ResumePage = () => {
-  const { user, loading } = useContext(AuthContext); // Добавляем loading
+  const { user, loading } = useContext(AuthContext);
   const [resumes, setResumes] = useState([]);
   const [resumeContent, setResumeContent] = useState('');
   const [education, setEducation] = useState(null);
@@ -32,10 +32,8 @@ const ResumePage = () => {
   ];
 
   useEffect(() => {
-    // Если данные еще загружаются, ничего не делаем
     if (loading) return;
 
-    // Если пользователь не авторизован, устанавливаем ошибку или перенаправляем
     if (!user) {
       setError('Пожалуйста, войдите, чтобы просмотреть личный кабинет');
       return;
@@ -57,7 +55,7 @@ const ResumePage = () => {
         const errorMsg = err.response?.data?.error || 'Не удалось загрузить резюме';
         setError(errorMsg);
       });
-  }, [user, loading]); // Добавляем loading в зависимости
+  }, [user, loading]);
 
   const handleSubmitResume = async (e) => {
     e.preventDefault();
@@ -71,20 +69,28 @@ const ResumePage = () => {
       return;
     }
 
-    const cleanedPhoneNumber = phoneNumber ? phoneNumber.replace(/[\s()-\u200B-\u200F]/g, '') : '';
+    // Очищаем номер телефона, удаляя пробелы, скобки и дефисы
+    const cleanedPhoneNumber = phoneNumber ? phoneNumber.replace(/[\s()-]/g, '') : '';
+    console.log('phoneNumber:', phoneNumber);
+    console.log('cleanedPhoneNumber:', cleanedPhoneNumber);
+
+    // Проверяем, что номер телефона либо пустой, либо валидный
     if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
       setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
       return;
     }
 
+    const payload = {
+      content: resumeContent.trim(),
+      education: education?.value || '',
+      phone_number: cleanedPhoneNumber
+    };
+    console.log('Data sent to server:', payload);
+
     try {
       const response = await axios.post(
         'http://localhost:8000/api/resume/create/',
-        {
-          content: resumeContent,
-          education: education?.value || '',
-          phone_number: cleanedPhoneNumber
-        },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResumes([...resumes, response.data]);
@@ -94,7 +100,11 @@ const ResumePage = () => {
       setError('');
       toast.success('Резюме успешно отправлено!');
     } catch (err) {
-      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.error || 'Ошибка при отправке резюме';
+      const errorMsg = err.response?.data?.content ||
+                       err.response?.data?.phone_number ||
+                       err.response?.data?.error ||
+                       'Ошибка при отправке резюме';
+      console.error('Error:', err.response?.data);
       toast.error(errorMsg);
       setError(errorMsg);
     }
@@ -144,49 +154,48 @@ const ResumePage = () => {
   };
 
   const handleEditResume = async (e) => {
-  e.preventDefault();
-  const token = localStorage.getItem('token');
-  if (!editContent.trim()) {
-    setError('Содержание резюме не может быть пустым');
-    return;
-  }
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    if (!editContent.trim()) {
+      setError('Содержание резюме не может быть пустым');
+      return;
+    }
 
-  // Исправляем очистку номера телефона
-  const cleanedPhoneNumber = editPhoneNumber ? editPhoneNumber.replace(/[\s()-]/g, '') : '';
-  console.log('editPhoneNumber:', editPhoneNumber);
-  console.log('cleanedPhoneNumber:', cleanedPhoneNumber);
+    const cleanedPhoneNumber = editPhoneNumber ? editPhoneNumber.replace(/[\s()-]/g, '') : '';
+    console.log('editPhoneNumber:', editPhoneNumber);
+    console.log('cleanedPhoneNumber:', cleanedPhoneNumber);
 
-  if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
-    setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
-    return;
-  }
+    if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
+      setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
+      return;
+    }
 
-  const payload = {
-    content: editContent.trim(),
-    education: editEducation?.value || '',
-    phone_number: cleanedPhoneNumber
+    const payload = {
+      content: editContent.trim(),
+      education: editEducation?.value || '',
+      phone_number: cleanedPhoneNumber
+    };
+    console.log('Data sent to server:', payload);
+
+    try {
+      const response = await axios.patch(
+        `http://localhost:8000/api/resume/${resumeToEdit}/edit/`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log('Response data:', response.data);
+      setResumes(resumes.map(resume =>
+        resume.id === resumeToEdit ? response.data : resume
+      ));
+      toast.success('Резюме успешно обновлено!');
+      handleCloseEditModal();
+    } catch (err) {
+      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.education || err.response?.data?.error || 'Ошибка при обновлении резюме';
+      console.error('Error:', err.response?.data);
+      toast.error(errorMsg);
+      setError(errorMsg);
+    }
   };
-  console.log('Data sent to server:', payload);
-
-  try {
-    const response = await axios.patch(
-      `http://localhost:8000/api/resume/${resumeToEdit}/edit/`,
-      payload,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    console.log('Response data:', response.data);
-    setResumes(resumes.map(resume =>
-      resume.id === resumeToEdit ? response.data : resume
-    ));
-    toast.success('Резюме успешно обновлено!');
-    handleCloseEditModal();
-  } catch (err) {
-    const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.education || err.response?.data?.error || 'Ошибка при обновлении резюме';
-    console.error('Error:', err.response?.data);
-    toast.error(errorMsg);
-    setError(errorMsg);
-  }
-};
 
   const handleOpenViewModal = (resume) => {
     setResumeToView(resume);
@@ -220,7 +229,6 @@ const ResumePage = () => {
     }
   };
 
-  // Если данные загружаются, показываем спиннер
   if (loading) {
     return (
       <div className="container mt-5 text-center">
@@ -231,7 +239,6 @@ const ResumePage = () => {
     );
   }
 
-  // Если пользователь не авторизован, перенаправляем на страницу логина
   if (!user) {
     return <Navigate to="/login" />;
   }

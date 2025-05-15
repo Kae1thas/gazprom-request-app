@@ -84,7 +84,9 @@ const ModeratorDocumentsPage = () => {
   const handleNotifyMissing = async (interviewId) => {
     const token = localStorage.getItem('token');
     const docs = documents[interviewId] || [];
-    const requiredTypes = documentTypes.slice(0, 9);
+    const interview = interviews.find((i) => i.id === interviewId);
+    const isMale = interview.candidate.user.gender === 'MALE';
+    const requiredTypes = isMale ? documentTypes.slice(0, 9) : documentTypes.filter((type) => type !== 'Приписное/Военник').slice(0, 8);
     const uploadedTypes = docs.map((doc) => doc.document_type);
     const missingTypes = requiredTypes.filter((type) => !uploadedTypes.includes(type));
     if (missingTypes.length === 0) {
@@ -121,12 +123,12 @@ const ModeratorDocumentsPage = () => {
   const handleConfirmHire = async (interviewId) => {
     const token = localStorage.getItem('token');
     try {
-      await axios.post(
+      const response = await axios.post(
         'http://localhost:8000/api/documents/confirm_hire/',
         { interview_id: interviewId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success('Кандидат успешно принят на работу!');
+      toast.success(response.data.message || 'Кандидат успешно принят на работу!');
       setInterviews((prev) => prev.filter((i) => i.id !== interviewId));
     } catch (err) {
       toast.error(err.response?.data?.error || 'Ошибка при подтверждении найма');
@@ -365,8 +367,10 @@ const ModeratorDocumentsPage = () => {
                     <PersonRemove />
                   </Button>
                 </Tooltip>
-                {documents[interview.id]?.length >= 9 &&
-                  documents[interview.id].filter((doc) => documentTypes.slice(0, 9).includes(doc.document_type)).every((doc) => doc.status === 'ACCEPTED') && (
+                {documents[interview.id]?.length >= (interview.candidate.user.gender === 'MALE' ? 9 : 8) &&
+                  documents[interview.id]
+                    .filter((doc) => (interview.candidate.user.gender === 'MALE' ? documentTypes.slice(0, 9) : documentTypes.filter((type) => type !== 'Приписное/Военник').slice(0, 8)).includes(doc.document_type))
+                    .every((doc) => doc.status === 'ACCEPTED') && (
                     <Tooltip title="Подтвердить найм">
                       <Button
                         onClick={() => handleConfirmHire(interview.id)}
