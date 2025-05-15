@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
-import { Table, TableBody, TableCell, TableHead, TableRow, Button, Tooltip } from '@mui/material';
-import { Warning, PersonAdd, PersonRemove, Download, Visibility } from '@mui/icons-material';
+import {
+  Table, TableBody, TableCell, TableHead, TableRow, Button, Tooltip, TextField, Select, MenuItem, FormControl, InputLabel,
+  Collapse, IconButton, Box, Typography
+} from '@mui/material';
+import { Warning, PersonAdd, PersonRemove, Download, Visibility, ExpandMore, ExpandLess } from '@mui/icons-material';
 import DocumentModal from './DocumentModal';
 
 const documentTypes = [
@@ -27,6 +30,16 @@ const ModeratorDocumentsPage = () => {
   const [error, setError] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [expanded, setExpanded] = useState({});
+
+  const formatDate = (isoDate) => {
+    if (!isoDate) return 'Не указана';
+    const date = new Date(isoDate);
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
 
   useEffect(() => {
     if (!user?.isStaff) {
@@ -35,7 +48,7 @@ const ModeratorDocumentsPage = () => {
       return;
     }
 
-    setDocuments({}); // Очистка состояния
+    setDocuments({});
     const token = localStorage.getItem('token');
     axios
       .get('http://localhost:8000/api/interviews/', {
@@ -44,18 +57,17 @@ const ModeratorDocumentsPage = () => {
       .then((response) => {
         const successfulInterviews = response.data.filter((i) => i.result === 'SUCCESS');
         setInterviews(successfulInterviews);
+        setExpanded(successfulInterviews.reduce((acc, interview) => ({
+          ...acc,
+          [interview.id]: true
+        }), {}));
         successfulInterviews.forEach((interview) => {
           axios
             .get(`http://localhost:8000/api/documents/?interview=${interview.id}`, {
               headers: { Authorization: `Bearer ${token}` },
             })
             .then((docResponse) => {
-              console.log(`Documents for interview ${interview.id}:`, docResponse.data);
-              setDocuments((prev) => {
-                const newDocs = { ...prev, [interview.id]: docResponse.data };
-                console.log('Updated documents state:', newDocs);
-                return newDocs;
-              });
+              setDocuments((prev) => ({ ...prev, [interview.id]: docResponse.data }));
             })
             .catch((err) => {
               console.error(`Error fetching documents for interview ${interview.id}:`, err);
@@ -122,7 +134,6 @@ const ModeratorDocumentsPage = () => {
   };
 
   const handleOpenModal = (doc) => {
-    console.log('Opening modal for document:', { id: doc.id, file_path: doc.file_path, document_type: doc.document_type, interview_id: doc.interview.id });
     setSelectedDoc(doc);
     setOpenModal(true);
   };
@@ -144,159 +155,237 @@ const ModeratorDocumentsPage = () => {
     });
   };
 
-  if (loading) return <div className="container mt-5">Загрузка...</div>;
-  if (error) return <div className="container mt-5 alert alert-danger">{error}</div>;
+  const toggleExpand = (interviewId) => {
+    setExpanded((prev) => ({ ...prev, [interviewId]: !prev[interviewId] }));
+  };
+
+  const filteredInterviews = useMemo(() => {
+    let result = [...interviews];
+    
+    // Поиск
+    if (searchQuery) {
+      result = result.filter((interview) =>
+        `${interview.candidate.user.last_name} ${interview.candidate.user.first_name}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Сортировка
+    result.sort((a, b) => {
+      if (sortBy === 'id') {
+        return sortOrder === 'asc' ? a.id - b.id : b.id - a.id;
+      } else if (sortBy === 'name') {
+        const nameA = `${a.candidate.user.last_name} ${a.candidate.user.first_name}`.toLowerCase();
+        const nameB = `${b.candidate.user.last_name} ${b.candidate.user.first_name}`.toLowerCase();
+        return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortBy === 'date') {
+        const dateA = new Date(a.scheduled_at || '1970-01-01');
+        const dateB = new Date(b.scheduled_at || '1970-01-01');
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [interviews, searchQuery, sortBy, sortOrder]);
+
+  if (loading) return <Box className="container mx-auto mt-5">Загрузка...</Box>;
+  if (error) return <Box className="container mx-auto mt-5 alert alert-danger">{error}</Box>;
 
   return (
-    <div className="container mt-5">
-      <h1 className="mb-4">Управление документами</h1>
-      {interviews.length === 0 ? (
-        <p>Нет кандидатов с успешными собеседованиями.</p>
+    <Box className="container mx-auto mt-5 pl-64 pt-20">
+      <Typography variant="h4" className="mb-4">Управление документами</Typography>
+      
+      {/* Поиск и сортировка */}
+      <Box className="flex gap-4 mb-4">
+        <TextField
+          label="Поиск по имени кандидата"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1"
+          size="small"
+        />
+        <FormControl variant="outlined" size="small" className="w-40">
+          <InputLabel>Сортировать по</InputLabel>
+          <Select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            label="Сортировать по"
+          >
+            <MenuItem value="id">ID собеседования</MenuItem>
+            <MenuItem value="name">Имя кандидата</MenuItem>
+            <MenuItem value="date">Дата собеседования</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl variant="outlined" size="small" className="w-40">
+          <InputLabel>Порядок</InputLabel>
+          <Select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            label="Порядок"
+          >
+            <MenuItem value="asc">По возрастанию</MenuItem>
+            <MenuItem value="desc">По убыванию</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      {filteredInterviews.length === 0 ? (
+        <Typography>Нет кандидатов с успешными собеседованиями.</Typography>
       ) : (
-        interviews.map((interview) => (
-          <div key={interview.id} className="card p-3 mb-4">
-            <h5>
-              Собеседование #{interview.id} - Кандидат: {interview.candidate.user.last_name}{' '}
-              {interview.candidate.user.first_name}
-            </h5>
-            <h6 className="mt-3">Документы:</h6>
-            {(documents[interview.id] || []).length === 0 ? (
-              <p>Документы не загружены.</p>
-            ) : (
-              <Table className="table table-striped compact-table">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Тип</TableCell>
-                    <TableCell>Статус</TableCell>
-                    <TableCell align="center">Действия</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {documentTypes.map((type) => {
-                    const doc = (documents[interview.id] || []).find((d) => d.document_type === type);
-                    console.log(`Rendering document for type ${type} in interview ${interview.id}:`, doc);
-                    return (
-                      <TableRow key={type}>
-                        <TableCell>{type}</TableCell>
-                        <TableCell>
-                          {doc ? (
-                            <span
-                              className={`badge ${
-                                doc.status === 'ACCEPTED'
-                                  ? 'bg-success'
-                                  : doc.status === 'REJECTED'
-                                  ? 'bg-danger'
-                                  : 'bg-warning'
-                              }`}
-                            >
-                              {doc.status_display}
-                            </span>
-                          ) : (
-                            'Не загружен'
-                          )}
-                        </TableCell>
-                        <TableCell align="center">
-                          {doc && (
-                            <div className="d-flex gap-1 justify-content-center">
-                              <Tooltip title="Просмотреть">
-                                <Button
-                                  onClick={() => {
-                                    console.log(`Opening modal for document ID ${doc.id}: ${doc.file_path}`);
-                                    handleOpenModal(doc);
-                                  }}
-                                  sx={{
-                                    backgroundColor: '#1976d2',
-                                    color: '#fff',
-                                    '&:hover': { backgroundColor: '#1565c0' },
-                                    borderRadius: '8px',
-                                    minWidth: '40px',
-                                    padding: '8px',
-                                  }}
-                                >
-                                  <Visibility fontSize="small" />
-                                </Button>
-                              </Tooltip>
-                              <Tooltip title="Скачать">
-                                <Button
-                                  onClick={() => {
-                                    console.log(`Downloading document ID ${doc.id}: ${doc.file_path}`);
-                                    const fullUrl = doc.file_path.startsWith('http')
-                                      ? doc.file_path
-                                      : `http://localhost:8000${doc.file_path}`;
-                                    window.open(fullUrl, '_blank');
-                                  }}
-                                  sx={{
-                                    backgroundColor: '#1976d2',
-                                    color: '#fff',
-                                    '&:hover': { backgroundColor: '#1565c0' },
-                                    borderRadius: '8px',
-                                    minWidth: '40px',
-                                    padding: '8px',
-                                  }}
-                                >
-                                  <Download fontSize="small" />
-                                </Button>
-                              </Tooltip>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-            <div className="d-flex gap-2 mt-3">
-              <Tooltip title="Уведомить о недостающих документах">
-                <Button
-                  onClick={() => handleNotifyMissing(interview.id)}
-                  sx={{
-                    backgroundColor: '#ed6c02',
-                    color: '#fff',
-                    '&:hover': { backgroundColor: '#d45d00' },
-                    borderRadius: '8px',
-                    minWidth: '40px',
-                    padding: '8px',
-                  }}
-                >
-                  <Warning />
-                </Button>
-              </Tooltip>
-              <Tooltip title="Отклонить кандидата">
-                <Button
-                  onClick={() => handleRejectCandidate(interview.id)}
-                  sx={{
-                    backgroundColor: '#d32f2f',
-                    color: '#fff',
-                    '&:hover': { backgroundColor: '#b71c1c' },
-                    borderRadius: '8px',
-                    minWidth: '40px',
-                    padding: '8px',
-                  }}
-                >
-                  <PersonRemove />
-                </Button>
-              </Tooltip>
-              {documents[interview.id]?.length >= 9 &&
-                documents[interview.id].filter((doc) => documentTypes.slice(0, 9).includes(doc.document_type)).every((doc) => doc.status === 'ACCEPTED') && (
-                  <Tooltip title="Подтвердить найм">
-                    <Button
-                      onClick={() => handleConfirmHire(interview.id)}
-                      sx={{
-                        backgroundColor: '#2e7d32',
-                        color: '#fff',
-                        '&:hover': { backgroundColor: '#1b5e20' },
-                        borderRadius: '8px',
-                        minWidth: '40px',
-                        padding: '8px',
-                      }}
-                    >
-                      <PersonAdd />
-                    </Button>
-                  </Tooltip>
-                )}
-            </div>
-          </div>
+        filteredInterviews.map((interview) => (
+          <Box key={interview.id} className="card p-3 mb-4 shadow-sm">
+            <Box className="flex justify-between items-center">
+              <Box>
+                <Typography variant="h6">
+                  Собеседование #{interview.id} - Кандидат: {interview.candidate.user.last_name}{' '}
+                  {interview.candidate.user.first_name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Дата: {formatDate(interview.scheduled_at)}
+                </Typography>
+              </Box>
+              <IconButton onClick={() => toggleExpand(interview.id)}>
+                {expanded[interview.id] ? <ExpandLess /> : <ExpandMore />}
+              </IconButton>
+            </Box>
+            <Collapse in={expanded[interview.id]}>
+              <Typography variant="subtitle1" className="mt-3">Документы:</Typography>
+              {(documents[interview.id] || []).length === 0 ? (
+                <Typography>Документы не загружены.</Typography>
+              ) : (
+                <Table className="table table-striped compact-table">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Тип</TableCell>
+                      <TableCell>Статус</TableCell>
+                      <TableCell align="center">Действия</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {documentTypes.map((type) => {
+                      const doc = (documents[interview.id] || []).find((d) => d.document_type === type);
+                      return (
+                        <TableRow key={type}>
+                          <TableCell>{type}</TableCell>
+                          <TableCell>
+                            {doc ? (
+                              <span
+                                className={`badge ${
+                                  doc.status === 'ACCEPTED'
+                                    ? 'bg-success'
+                                    : doc.status === 'REJECTED'
+                                    ? 'bg-danger'
+                                    : 'bg-warning'
+                                }`}
+                              >
+                                {doc.status_display}
+                              </span>
+                            ) : (
+                              'Не загружен'
+                            )}
+                          </TableCell>
+                          <TableCell align="center">
+                            {doc && (
+                              <div className="d-flex gap-1 justify-content-center">
+                                <Tooltip title="Просмотреть">
+                                  <Button
+                                    onClick={() => handleOpenModal(doc)}
+                                    sx={{
+                                      backgroundColor: '#1976d2',
+                                      color: '#fff',
+                                      '&:hover': { backgroundColor: '#1565c0' },
+                                      borderRadius: '8px',
+                                      minWidth: '40px',
+                                      padding: '8px',
+                                    }}
+                                  >
+                                    <Visibility fontSize="small" />
+                                  </Button>
+                                </Tooltip>
+                                <Tooltip title="Скачать">
+                                  <Button
+                                    onClick={() => {
+                                      const fullUrl = doc.file_path.startsWith('http')
+                                        ? doc.file_path
+                                        : `http://localhost:8000${doc.file_path}`;
+                                      window.open(fullUrl, '_blank');
+                                    }}
+                                    sx={{
+                                      backgroundColor: '#1976d2',
+                                      color: '#fff',
+                                      '&:hover': { backgroundColor: '#1565c0' },
+                                      borderRadius: '8px',
+                                      minWidth: '40px',
+                                      padding: '8px',
+                                    }}
+                                  >
+                                    <Download fontSize="small" />
+                                  </Button>
+                                </Tooltip>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+              <Box className="d-flex gap-2 mt-3">
+                <Tooltip title="Уведомить о недостающих документах">
+                  <Button
+                    onClick={() => handleNotifyMissing(interview.id)}
+                    sx={{
+                      backgroundColor: '#ed6c02',
+                      color: '#fff',
+                      '&:hover': { backgroundColor: '#d45d00' },
+                      borderRadius: '8px',
+                      minWidth: '40px',
+                      padding: '8px',
+                    }}
+                  >
+                    <Warning />
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Отклонить кандидата">
+                  <Button
+                    onClick={() => handleRejectCandidate(interview.id)}
+                    sx={{
+                      backgroundColor: '#d32f2f',
+                      color: '#fff',
+                      '&:hover': { backgroundColor: '#b71c1c' },
+                      borderRadius: '8px',
+                      minWidth: '40px',
+                      padding: '8px',
+                    }}
+                  >
+                    <PersonRemove />
+                  </Button>
+                </Tooltip>
+                {documents[interview.id]?.length >= 9 &&
+                  documents[interview.id].filter((doc) => documentTypes.slice(0, 9).includes(doc.document_type)).every((doc) => doc.status === 'ACCEPTED') && (
+                    <Tooltip title="Подтвердить найм">
+                      <Button
+                        onClick={() => handleConfirmHire(interview.id)}
+                        sx={{
+                          backgroundColor: '#2e7d32',
+                          color: '#fff',
+                          '&:hover': { backgroundColor: '#1b5e20' },
+                          borderRadius: '8px',
+                          minWidth: '40px',
+                          padding: '8px',
+                        }}
+                      >
+                        <PersonAdd />
+                      </Button>
+                    </Tooltip>
+                  )}
+              </Box>
+            </Collapse>
+          </Box>
         ))
       )}
       {selectedDoc && (
@@ -308,7 +397,7 @@ const ModeratorDocumentsPage = () => {
           isModerator={true}
         />
       )}
-    </div>
+    </Box>
   );
 };
 
