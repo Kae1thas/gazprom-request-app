@@ -13,6 +13,8 @@ const ResumePage = () => {
   const [resumeContent, setResumeContent] = useState('');
   const [education, setEducation] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [resumeType, setResumeType] = useState(null);
+  const [practiceType, setPracticeType] = useState(null);
   const [error, setError] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [resumeToDelete, setResumeToDelete] = useState(null);
@@ -21,6 +23,8 @@ const ResumePage = () => {
   const [editContent, setEditContent] = useState('');
   const [editEducation, setEditEducation] = useState(null);
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
+  const [editResumeType, setEditResumeType] = useState(null);
+  const [editPracticeType, setEditPracticeType] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [resumeToView, setResumeToView] = useState(null);
   const [statusComment, setStatusComment] = useState('');
@@ -28,7 +32,18 @@ const ResumePage = () => {
   const educationOptions = [
     { value: 'SECONDARY', label: 'Среднее' },
     { value: 'HIGHER', label: 'Высшее' },
-    { value: 'POSTGRADUATE', label: 'Аспирантура' }
+    { value: 'POSTGRADUATE', label: 'Аспирантура' },
+  ];
+
+  const resumeTypeOptions = [
+    { value: 'JOB', label: 'Работа' },
+    { value: 'PRACTICE', label: 'Практика' },
+  ];
+
+  const practiceTypeOptions = [
+    { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
+    { value: 'PRODUCTION', label: 'Производственная' },
+    { value: 'EDUCATIONAL', label: 'Учебная' },
   ];
 
   useEffect(() => {
@@ -48,10 +63,10 @@ const ResumePage = () => {
     const resumeUrl = user.isStaff ? 'http://localhost:8000/api/resumes/' : 'http://localhost:8000/api/resumes/my/';
     axios
       .get(resumeUrl, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .then(response => setResumes(response.data))
-      .catch(err => {
+      .then((response) => setResumes(response.data))
+      .catch((err) => {
         const errorMsg = err.response?.data?.error || 'Не удалось загрузить резюме';
         setError(errorMsg);
       });
@@ -68,13 +83,16 @@ const ResumePage = () => {
       setError('Содержание резюме не может быть пустым');
       return;
     }
+    if (!resumeType) {
+      setError('Выберите тип заявки');
+      return;
+    }
+    if (resumeType.value === 'PRACTICE' && !practiceType) {
+      setError('Выберите тип практики');
+      return;
+    }
 
-    // Очищаем номер телефона, удаляя пробелы, скобки и дефисы
     const cleanedPhoneNumber = phoneNumber ? phoneNumber.replace(/[\s()-]/g, '') : '';
-    console.log('phoneNumber:', phoneNumber);
-    console.log('cleanedPhoneNumber:', cleanedPhoneNumber);
-
-    // Проверяем, что номер телефона либо пустой, либо валидный
     if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
       setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
       return;
@@ -83,28 +101,31 @@ const ResumePage = () => {
     const payload = {
       content: resumeContent.trim(),
       education: education?.value || '',
-      phone_number: cleanedPhoneNumber
+      phone_number: cleanedPhoneNumber,
+      resume_type: resumeType?.value || 'JOB',
+      ...(resumeType?.value === 'PRACTICE' && { practice_type: practiceType?.value || '' }),
     };
-    console.log('Data sent to server:', payload);
 
     try {
-      const response = await axios.post(
-        'http://localhost:8000/api/resume/create/',
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axios.post('http://localhost:8000/api/resume/create/', payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setResumes([...resumes, response.data]);
       setResumeContent('');
       setEducation(null);
       setPhoneNumber('');
+      setResumeType(null);
+      setPracticeType(null);
       setError('');
       toast.success('Резюме успешно отправлено!');
     } catch (err) {
-      const errorMsg = err.response?.data?.content ||
-                       err.response?.data?.phone_number ||
-                       err.response?.data?.error ||
-                       'Ошибка при отправке резюме';
-      console.error('Error:', err.response?.data);
+      const errorMsg =
+        err.response?.data?.content ||
+        err.response?.data?.phone_number ||
+        err.response?.data?.resume_type ||
+        err.response?.data?.practice_type ||
+        err.response?.data?.error ||
+        'Ошибка при отправке резюме';
       toast.error(errorMsg);
       setError(errorMsg);
     }
@@ -124,9 +145,9 @@ const ResumePage = () => {
     const token = localStorage.getItem('token');
     try {
       await axios.delete(`http://localhost:8000/api/resume/${resumeToDelete}/delete/`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      setResumes(resumes.filter(resume => resume.id !== resumeToDelete));
+      setResumes(resumes.filter((resume) => resume.id !== resumeToDelete));
       toast.success('Резюме успешно удалено!');
       handleCloseDeleteModal();
     } catch (err) {
@@ -140,8 +161,14 @@ const ResumePage = () => {
   const handleOpenEditModal = (resume) => {
     setResumeToEdit(resume.id);
     setEditContent(resume.content);
-    setEditEducation(educationOptions.find(opt => opt.value === resume.education) || null);
+    setEditEducation(educationOptions.find((opt) => opt.value === resume.education) || null);
     setEditPhoneNumber(resume.phone_number || '');
+    setEditResumeType(resumeTypeOptions.find((opt) => opt.value === resume.resume_type) || null);
+    setEditPracticeType(
+      resume.practice_type
+        ? practiceTypeOptions.find((opt) => opt.value === resume.practice_type) || null
+        : null
+    );
     setShowEditModal(true);
   };
 
@@ -151,6 +178,8 @@ const ResumePage = () => {
     setEditContent('');
     setEditEducation(null);
     setEditPhoneNumber('');
+    setEditResumeType(null);
+    setEditPracticeType(null);
   };
 
   const handleEditResume = async (e) => {
@@ -160,11 +189,16 @@ const ResumePage = () => {
       setError('Содержание резюме не может быть пустым');
       return;
     }
+    if (!editResumeType) {
+      setError('Выберите тип заявки');
+      return;
+    }
+    if (editResumeType.value === 'PRACTICE' && !editPracticeType) {
+      setError('Выберите тип практики');
+      return;
+    }
 
     const cleanedPhoneNumber = editPhoneNumber ? editPhoneNumber.replace(/[\s()-]/g, '') : '';
-    console.log('editPhoneNumber:', editPhoneNumber);
-    console.log('cleanedPhoneNumber:', cleanedPhoneNumber);
-
     if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
       setError('Номер телефона должен начинаться с +7 и содержать 12 символов');
       return;
@@ -173,25 +207,27 @@ const ResumePage = () => {
     const payload = {
       content: editContent.trim(),
       education: editEducation?.value || '',
-      phone_number: cleanedPhoneNumber
+      phone_number: cleanedPhoneNumber,
+      resume_type: editResumeType?.value || 'JOB',
+      ...(editResumeType?.value === 'PRACTICE' && { practice_type: editPracticeType?.value || '' }),
     };
-    console.log('Data sent to server:', payload);
 
     try {
-      const response = await axios.patch(
-        `http://localhost:8000/api/resume/${resumeToEdit}/edit/`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      console.log('Response data:', response.data);
-      setResumes(resumes.map(resume =>
-        resume.id === resumeToEdit ? response.data : resume
-      ));
+      const response = await axios.patch(`http://localhost:8000/api/resume/${resumeToEdit}/edit/`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setResumes(resumes.map((resume) => (resume.id === resumeToEdit ? response.data : resume)));
       toast.success('Резюме успешно обновлено!');
       handleCloseEditModal();
     } catch (err) {
-      const errorMsg = err.response?.data?.content || err.response?.data?.phone_number || err.response?.data?.education || err.response?.data?.error || 'Ошибка при обновлении резюме';
-      console.error('Error:', err.response?.data);
+      const errorMsg =
+        err.response?.data?.content ||
+        err.response?.data?.phone_number ||
+        err.response?.data?.resume_type ||
+        err.response?.data?.practice_type ||
+        err.response?.data?.education ||
+        err.response?.data?.error ||
+        'Ошибка при обновлении резюме';
       toast.error(errorMsg);
       setError(errorMsg);
     }
@@ -217,9 +253,11 @@ const ResumePage = () => {
         { status: newStatus, comment: statusComment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setResumes(resumes.map(resume =>
-        resume.id === resumeId ? { ...resume, status: response.data.status, comment: response.data.comment } : resume
-      ));
+      setResumes(
+        resumes.map((resume) =>
+          resume.id === resumeId ? { ...resume, status: response.data.status, comment: response.data.comment } : resume
+        )
+      );
       toast.success(`Статус резюме обновлён: ${newStatus}`);
       handleCloseViewModal();
     } catch (err) {
@@ -258,6 +296,8 @@ const ResumePage = () => {
               <thead>
                 <tr>
                   <th>Кандидат</th>
+                  <th>Тип заявки</th>
+                  <th>Тип практики</th>
                   <th>Содержание</th>
                   <th>Образование</th>
                   <th>Телефон</th>
@@ -267,13 +307,17 @@ const ResumePage = () => {
                 </tr>
               </thead>
               <tbody>
-                {resumes.map(resume => (
+                {resumes.map((resume) => (
                   <tr key={resume.id}>
                     <td>
                       {resume.candidate?.user
-                        ? `${resume.candidate.user.last_name || ''} ${resume.candidate.user.first_name || ''} ${resume.candidate.user.patronymic || ''}`.trim()
+                        ? `${resume.candidate.user.last_name || ''} ${resume.candidate.user.first_name || ''} ${
+                            resume.candidate.user.patronymic || ''
+                          }`.trim()
                         : 'Кандидат не указан'}
                     </td>
+                    <td>{resume.resume_type === 'JOB' ? 'Работа' : 'Практика'}</td>
+                    <td>{resume.practice_type_display || '-'}</td>
                     <td>{resume.content.substring(0, 50)}...</td>
                     <td>{resume.education_display || 'Не указано'}</td>
                     <td>{resume.phone_number || 'Не указан'}</td>
@@ -325,6 +369,30 @@ const ResumePage = () => {
           <h2 className="card-header">Подать резюме</h2>
           <div className="card-body">
             <form onSubmit={handleSubmitResume}>
+              <div className="mb-3">
+                <label htmlFor="resumeType" className="form-label">Тип заявки</label>
+                <Select
+                  id="resumeType"
+                  options={resumeTypeOptions}
+                  value={resumeType}
+                  onChange={setResumeType}
+                  placeholder="Выберите тип заявки"
+                  isClearable
+                />
+              </div>
+              {resumeType?.value === 'PRACTICE' && (
+                <div className="mb-3">
+                  <label htmlFor="practiceType" className="form-label">Тип практики</label>
+                  <Select
+                    id="practiceType"
+                    options={practiceTypeOptions}
+                    value={practiceType}
+                    onChange={setPracticeType}
+                    placeholder="Выберите тип практики"
+                    isClearable
+                  />
+                </div>
+              )}
               <div className="mb-3">
                 <label htmlFor="resumeContent" className="form-label">Содержание резюме</label>
                 <textarea
@@ -397,6 +465,30 @@ const ResumePage = () => {
             <form onSubmit={handleEditResume}>
               <div className="modal-body">
                 <div className="mb-3">
+                  <label htmlFor="editResumeType" className="form-label">Тип заявки</label>
+                  <Select
+                    id="editResumeType"
+                    options={resumeTypeOptions}
+                    value={editResumeType}
+                    onChange={setEditResumeType}
+                    placeholder="Выберите тип заявки"
+                    isClearable
+                  />
+                </div>
+                {editResumeType?.value === 'PRACTICE' && (
+                  <div className="mb-3">
+                    <label htmlFor="editPracticeType" className="form-label">Тип практики</label>
+                    <Select
+                      id="editPracticeType"
+                      options={practiceTypeOptions}
+                      value={editPracticeType}
+                      onChange={setEditPracticeType}
+                      placeholder="Выберите тип практики"
+                      isClearable
+                    />
+                  </div>
+                )}
+                <div className="mb-3">
                   <label htmlFor="editContent" className="form-label">Содержание резюме</label>
                   <textarea
                     className="form-control"
@@ -454,18 +546,41 @@ const ResumePage = () => {
             <div className="modal-body">
               {resumeToView && (
                 <>
-                  <h6>Кандидат: {resumeToView.candidate?.user.last_name} {resumeToView.candidate?.user.first_name} {resumeToView.candidate?.user.patronymic}</h6>
-                  <p><strong>Email:</strong> {resumeToView.candidate?.user.email}</p>
-                  <p><strong>Образование:</strong> {resumeToView.education_display || 'Не указано'}</p>
-                  <p><strong>Номер телефона:</strong> {resumeToView.phone_number || 'Не указан'}</p>
-                  <p><strong>Дата создания:</strong> {new Date(resumeToView.created_at).toLocaleString()}</p>
-                  <p><strong>Содержание:</strong></p>
+                  <h6>
+                    Кандидат: {resumeToView.candidate?.user.last_name} {resumeToView.candidate?.user.first_name}{' '}
+                    {resumeToView.candidate?.user.patronymic}
+                  </h6>
+                  <p>
+                    <strong>Email:</strong> {resumeToView.candidate?.user.email}
+                  </p>
+                  <p>
+                    <strong>Тип заявки:</strong> {resumeToView.resume_type === 'JOB' ? 'Работа' : 'Практика'}
+                  </p>
+                  {resumeToView.resume_type === 'PRACTICE' && (
+                    <p>
+                      <strong>Тип практики:</strong> {resumeToView.practice_type_display || '-'}
+                    </p>
+                  )}
+                  <p>
+                    <strong>Образование:</strong> {resumeToView.education_display || 'Не указано'}
+                  </p>
+                  <p>
+                    <strong>Номер телефона:</strong> {resumeToView.phone_number || 'Не указан'}
+                  </p>
+                  <p>
+                    <strong>Дата создания:</strong> {new Date(resumeToView.created_at).toLocaleString()}
+                  </p>
+                  <p>
+                    <strong>Содержание:</strong>
+                  </p>
                   <div className="border p-3 bg-light" style={{ whiteSpace: 'pre-wrap' }}>
                     {resumeToView.content}
                   </div>
                   {(resumeToView.status === 'ACCEPTED' || resumeToView.status === 'REJECTED') && resumeToView.comment && (
                     <div className="mt-3">
-                      <p><strong>Комментарий модератора:</strong></p>
+                      <p>
+                        <strong>Комментарий модератора:</strong>
+                      </p>
                       <div className="border p-3 bg-light" style={{ whiteSpace: 'pre-wrap' }}>
                         {resumeToView.comment}
                       </div>
@@ -473,7 +588,9 @@ const ResumePage = () => {
                   )}
                   {user.isStaff && resumeToView.status === 'PENDING' && (
                     <div className="mt-3">
-                      <label htmlFor="statusComment" className="form-label">Комментарий к статусу</label>
+                      <label htmlFor="statusComment" className="form-label">
+                        Комментарий к статусу
+                      </label>
                       <textarea
                         className="form-control"
                         id="statusComment"
