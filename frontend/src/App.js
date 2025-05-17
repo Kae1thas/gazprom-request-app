@@ -9,6 +9,7 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import HomePage from './components/HomePage';
 import ResumePage from './components/ResumePage';
+import ModeratorResumePage from './components/ModeratorResumePage';
 import InterviewPage from './components/InterviewPage';
 import DocumentsPage from './components/DocumentsPage';
 import NotificationsPage from './components/NotificationsPage';
@@ -61,6 +62,14 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <ResumePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resume/moderator"
+            element={
+              <ProtectedRoute>
+                <ModeratorResumePage />
               </ProtectedRoute>
             }
           />
