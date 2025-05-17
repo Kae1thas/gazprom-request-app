@@ -117,7 +117,24 @@ class ResumeCreateView(APIView):
         serializer = ResumeSerializer(data=request.data)
         if serializer.is_valid():
             try:
-                serializer.save(candidate=candidate)
+                resume = serializer.save(candidate=candidate)
+                # Отправка уведомления о создании резюме
+                Notification.objects.create(
+                    user=resume.candidate.user,
+                    message=f'Ваше резюме #{resume.id} ({resume.get_resume_type_display()}) успешно отправлено.',
+                    type='RESUME_SUBMISSION',
+                    sent_to_email=True
+                )
+                send_notification_email(
+                    subject='Ваше резюме отправлено',
+                    template_name='emails/resume_submission.html',
+                    context={
+                        'user': resume.candidate.user,
+                        'resume_id': resume.id,
+                        'resume_type': resume.get_resume_type_display(),
+                    },
+                    recipient_list=[resume.candidate.user.email]
+                )
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response({'error': f'Ошибка при сохранении резюме: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -245,6 +262,45 @@ class InterviewViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        # Отправка уведомления о результате собеседования
+        result_display = {
+            'SUCCESS': 'Успешно',
+            'FAILURE': 'Неуспешно',
+            'PENDING': 'Ожидает'
+        }.get(instance.result, instance.result)
+        status_display = {
+            'SCHEDULED': 'Запланировано',
+            'COMPLETED': 'Проведено',
+            'CANCELLED': 'Отменено'
+        }.get(instance.status, instance.status)
+        if instance.status == 'COMPLETED':
+            message = f'Собеседование #{instance.id} ({instance.get_resume_type_display()}) завершено. Результат: {result_display}.'
+            email_template = 'emails/interview_result_success.html' if instance.result == 'SUCCESS' else 'emails/interview_result_failure.html'
+            email_subject = 'Результат вашего собеседования'
+            email_context = {
+                'user': instance.candidate.user,
+                'interview_id': instance.id,
+                'resume_type': instance.get_resume_type_display(),
+                'result': result_display,
+                'comment': instance.comment or 'Отсутствует'
+            }
+            if instance.result == 'SUCCESS':
+                message += ' Пожалуйста, загрузите необходимые документы.'
+                email_context['document_instructions'] = 'Пожалуйста, загрузите необходимые документы в вашем личном кабинете.'
+            else:
+                message += ' К сожалению, вы нам не подходите.'
+            Notification.objects.create(
+                user=instance.candidate.user,
+                message=message,
+                type='INTERVIEW_RESULT',
+                sent_to_email=True
+            )
+            send_notification_email(
+                subject=email_subject,
+                template_name=email_template,
+                context=email_context,
+                recipient_list=[instance.candidate.user.email]
+            )
         logger.info(f"Interview {instance.id} updated: result={instance.result}, candidate={instance.candidate.id}, has_successful_interview={instance.candidate.has_successful_interview}")
         return Response(serializer.data)
 
@@ -529,17 +585,33 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     Employee.objects.get(user=candidate.user)
                     return Response({'error': 'Пользователь уже является сотрудником'}, status=status.HTTP_400_BAD_REQUEST)
                 except Employee.DoesNotExist:
+                    hire_date = timezone.now().date()
                     Employee.objects.create(
                         user=candidate.user,
                         department='Не указано',
                         position='Не указано',
-                        hire_date=timezone.now().date()
+                        hire_date=hire_date
                     )
-                    message = 'Поздравляем! Вы приняты на работу.'
+                    message = f'Поздравляем! Ваш прием на работу назначен на {hire_date.strftime("%d.%m.%Y")}.'
                     email_status = 'Приняты на работу'
+                    email_template = 'emails/hire_confirmation.html'
+                    email_context = {
+                        'user': candidate.user,
+                        'application_type': interview.get_resume_type_display().lower(),
+                        'status': email_status,
+                        'hire_date': hire_date.strftime("%d.%m.%Y")
+                    }
             else:
-                message = f'Поздравляем! Вы приняты на {interview.get_practice_type_display()} практику.'
+                hire_date = timezone.now().date()
+                message = f'Поздравляем! Ваш прием на {interview.get_practice_type_display()} практику назначен на {hire_date.strftime("%d.%m.%Y")}.'
                 email_status = f'Приняты на {interview.get_practice_type_display()} практику'
+                email_template = 'emails/hire_confirmation.html'
+                email_context = {
+                    'user': candidate.user,
+                    'application_type': interview.get_resume_type_display().lower(),
+                    'status': email_status,
+                    'hire_date': hire_date.strftime("%d.%m.%Y")
+                }
 
             candidate.has_successful_interview = False
             candidate.save()
@@ -551,12 +623,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
             )
             send_notification_email(
                 subject='Поздравляем с успешным завершением!',
-                template_name='emails/hire_status.html',
-                context={
-                    'user': candidate.user,
-                    'application_type': interview.get_resume_type_display().lower(),
-                    'status': email_status,
-                },
+                template_name=email_template,
+                context=email_context,
                 recipient_list=[candidate.user.email]
             )
             return Response({'message': f'Кандидат успешно принят на {resume_type.lower()}'}, status=status.HTTP_200_OK)
