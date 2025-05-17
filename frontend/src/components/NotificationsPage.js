@@ -19,19 +19,21 @@ const NotificationsPage = () => {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    axios
-      .get('http://localhost:8000/api/notifications/', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((response) => {
+    const fetchNotifications = async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const response = await axios.get('http://localhost:8000/api/notifications/', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setNotifications(response.data);
         setLoading(false);
-      })
-      .catch(() => {
+      } catch (err) {
         setError('Не удалось загрузить уведомления');
         setLoading(false);
-      });
+      }
+    };
+
+    fetchNotifications();
   }, [user]);
 
   const markAsRead = async (notificationId) => {
@@ -48,6 +50,8 @@ const NotificationsPage = () => {
         )
       );
       toast.success('Уведомление помечено как прочитанное');
+      // Оповещаем другие компоненты об изменении
+      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId } }));
     } catch (err) {
       toast.error('Ошибка при отметке уведомления');
     }
@@ -69,6 +73,7 @@ const NotificationsPage = () => {
       );
       setNotifications(notifications.map((n) => ({ ...n, is_read: true })));
       toast.success('Все уведомления помечены как прочитанные');
+      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { all: true } }));
     } catch (err) {
       toast.error('Ошибка при отметке всех уведомлений');
     }

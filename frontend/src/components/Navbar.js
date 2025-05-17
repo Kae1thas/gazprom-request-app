@@ -12,18 +12,40 @@ const Navbar = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  useEffect(() => {
+  const fetchNotifications = async () => {
     if (user && !user.isStaff) {
       const token = localStorage.getItem('token');
-      axios
-        .get('http://localhost:8000/api/notifications/', {
+      try {
+        const response = await axios.get('http://localhost:8000/api/notifications/', {
           headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((response) => {
-          setNotifications(response.data);
-          setUnreadCount(response.data.filter((n) => !n.is_read).length);
-        })
-        .catch((err) => console.error('Ошибка загрузки уведомлений:', err));
+        });
+        const unreadNotifications = response.data.filter((n) => !n.is_read);
+        setNotifications(unreadNotifications);
+        setUnreadCount(unreadNotifications.length);
+      } catch (err) {
+        console.error('Ошибка загрузки уведомлений:', err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    if (user && !user.isStaff) {
+      const interval = setInterval(fetchNotifications, 10000); // Polling каждые 10 секунд
+      const handleNotificationRead = (event) => {
+        if (event.detail.all) {
+          setNotifications([]);
+          setUnreadCount(0);
+        } else {
+          setNotifications((prev) => prev.filter((n) => n.id !== event.detail.notificationId));
+          setUnreadCount((prev) => prev - 1);
+        }
+      };
+      window.addEventListener('notificationRead', handleNotificationRead);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('notificationRead', handleNotificationRead);
+      };
     }
   }, [user]);
 
@@ -40,12 +62,9 @@ const Navbar = () => {
         { is_read: true },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setNotifications(
-        notifications.map((n) =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
-      );
+      setNotifications(notifications.filter((n) => n.id !== notificationId));
       setUnreadCount(unreadCount - 1);
+      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId } }));
     } catch (err) {
       console.error('Ошибка отметки уведомления:', err);
     }
@@ -67,7 +86,7 @@ const Navbar = () => {
                 <Dropdown show={showNotifications} onToggle={toggleNotifications}>
                   <Dropdown.Toggle
                     as="button"
-                    className="btn btn-link text-white"
+                    className="btn btn-link text-white position-relative"
                     title="Уведомления"
                   >
                     <FaBell />
@@ -79,13 +98,13 @@ const Navbar = () => {
                   </Dropdown.Toggle>
                   <Dropdown.Menu align="end" className="dropdown-menu-notifications">
                     {notifications.length === 0 ? (
-                      <Dropdown.Item disabled>Нет уведомлений</Dropdown.Item>
+                      <Dropdown.Item disabled>Нет непрочитанных уведомлений</Dropdown.Item>
                     ) : (
-                      notifications.slice(0, 5).map((notification) => (
+                      notifications.map((notification) => (
                         <Dropdown.Item
                           key={notification.id}
-                          onClick={() => !notification.is_read && markAsRead(notification.id)}
-                          className={`notification-item ${!notification.is_read ? 'unread bg-light' : ''}`}
+                          onClick={() => markAsRead(notification.id)}
+                          className="notification-item unread bg-light"
                           style={{ cursor: 'pointer' }}
                         >
                           <div className="d-flex justify-content-between">
@@ -104,11 +123,9 @@ const Navbar = () => {
                         </Dropdown.Item>
                       ))
                     )}
-                    {notifications.length > 5 && (
-                      <Dropdown.Item as={Link} to="/notifications">
-                        Показать все уведомления
-                      </Dropdown.Item>
-                    )}
+                    <Dropdown.Item as={Link} to="/notifications">
+                      Показать все уведомления
+                    </Dropdown.Item>
                   </Dropdown.Menu>
                 </Dropdown>
               )}

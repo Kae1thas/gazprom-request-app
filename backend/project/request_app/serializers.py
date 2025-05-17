@@ -262,4 +262,4 @@ class DocumentSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'user', 'message', 'is_read', 'created_at', 'sent_to_email']
+        fields = ['id', 'user', 'message', 'is_read', 'created_at', 'sent_to_email', 'type']

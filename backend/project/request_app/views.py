@@ -122,7 +122,7 @@ class ResumeCreateView(APIView):
                 Notification.objects.create(
                     user=resume.candidate.user,
                     message=f'Ваше резюме #{resume.id} ({resume.get_resume_type_display()}) успешно отправлено.',
-                    type='RESUME_SUBMISSION',
+                    type='RESUME_STATUS',
                     sent_to_email=True
                 )
                 send_notification_email(
@@ -292,7 +292,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
             Notification.objects.create(
                 user=instance.candidate.user,
                 message=message,
-                type='INTERVIEW_RESULT',
+                type='INTERVIEW',
                 sent_to_email=True
             )
             send_notification_email(
