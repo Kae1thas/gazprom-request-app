@@ -195,20 +195,21 @@ const ModeratorDocumentsPage = () => {
 
   return (
     <Box className="container mx-auto mt-5 pl-64 pt-20">
-      <Typography variant="h4" className="mb-4">Управление документами</Typography>
+      <Typography variant="h4" sx={{ textAlign: 'center', mb: 4 }}>Управление документами</Typography>
       
-      <Box className="flex gap-4 mb-4">
+      <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
         <TextField
           label="Поиск по имени кандидата"
           variant="outlined"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1"
+          sx={{ flex: 1, minWidth: 200 }}
           size="small"
         />
-        <FormControl variant="outlined" size="small" className="w-40">
-          <InputLabel>Сортировать по</InputLabel>
+        <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
+          <InputLabel id="sort-by-label">Сортировать по</InputLabel>
           <Select
+            labelId="sort-by-label"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             label="Сортировать по"
@@ -218,9 +219,10 @@ const ModeratorDocumentsPage = () => {
             <MenuItem value="date">Дата собеседования</MenuItem>
           </Select>
         </FormControl>
-        <FormControl variant="outlined" size="small" className="w-40">
-          <InputLabel>Порядок</InputLabel>
+        <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
+          <InputLabel id="sort-order-label">Порядок</InputLabel>
           <Select
+            labelId="sort-order-label"
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
             label="Порядок"

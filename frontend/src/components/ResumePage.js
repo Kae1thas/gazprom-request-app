@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
-import Select from 'react-select';
 import { IMaskInput } from 'react-imask';
 import { FaEye, FaEdit, FaTrash } from 'react-icons/fa';
-import { Tabs, Tab, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import {
+  Tabs, Tab, Table, TableBody, TableCell, TableHead, TableRow,
+  Box, Typography, TextField, FormControl, InputLabel, Select, MenuItem
+} from '@mui/material';
+import SelectComponent from 'react-select'; // Переименовал для избежания конфликта
 
 const ResumePage = () => {
   const { user, loading } = useContext(AuthContext);
@@ -30,6 +33,9 @@ const ResumePage = () => {
   const [resumeToView, setResumeToView] = useState(null);
   const [statusComment, setStatusComment] = useState('');
   const [activeTab, setActiveTab] = useState('JOB');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   const educationOptions = [
     { value: 'SECONDARY', label: 'Среднее' },
@@ -47,6 +53,13 @@ const ResumePage = () => {
     { value: 'PRODUCTION', label: 'Производственная' },
     { value: 'EDUCATIONAL', label: 'Учебная' },
   ];
+
+  const educationOrder = {
+    'SECONDARY': 1,
+    'HIGHER': 2,
+    'POSTGRADUATE': 3,
+    '': 0 // Для случаев, когда образование не указано
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -126,7 +139,6 @@ const ResumePage = () => {
       setEducation(null);
       setPhoneNumber('');
       setResumeType(null);
-      // Сохраняем practiceType, если resumeType остался PRACTICE, чтобы поле не очищалось
       if (response.data.resume_type === 'PRACTICE' && response.data.practice_type) {
         setPracticeType(
           practiceTypeOptions.find((opt) => opt.value === response.data.practice_type) || null
@@ -302,6 +314,35 @@ const ResumePage = () => {
     setActiveTab(newValue);
   };
 
+  const filteredResumes = useMemo(() => {
+    let result = [...resumes].filter((resume) => resume.resume_type === activeTab);
+
+    if (user.isStaff && searchQuery) {
+      result = result.filter((resume) =>
+        `${resume.candidate?.user?.last_name || ''} ${resume.candidate?.user?.first_name || ''}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      );
+    }
+
+    result.sort((a, b) => {
+      if (sortBy === 'id') {
+        return sortOrder === 'asc' ? a.id - b.id : b.id - a.id;
+      } else if (sortBy === 'education') {
+        const eduA = educationOrder[a.education || ''] || 0;
+        const eduB = educationOrder[b.education || ''] || 0;
+        return sortOrder === 'asc' ? eduA - eduB : eduB - eduA;
+      } else if (sortBy === 'date') {
+        const dateA = new Date(a.created_at || '1970-01-01');
+        const dateB = new Date(b.created_at || '1970-01-01');
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [resumes, activeTab, searchQuery, sortBy, sortOrder, user.isStaff]);
+
   if (loading) {
     return (
       <div className="container mt-5 text-center">
@@ -322,7 +363,7 @@ const ResumePage = () => {
   const hasPracticeResumes = practiceResumes.length > 0;
 
   const renderResumeTable = (resumeType) => {
-    const resumesToShow = resumeType === 'JOB' ? jobResumes : practiceResumes;
+    const resumesToShow = filteredResumes;
     const isPractice = resumeType === 'PRACTICE';
 
     return (
@@ -413,9 +454,47 @@ const ResumePage = () => {
   };
 
   return (
-    <div className="container mt-5">
-      <h1 className="text-center mb-4">Личный кабинет</h1>
+    <Box className="container mt-5">
+      <Typography variant="h4" className="text-center mb-4">Личный кабинет</Typography>
       {error && <div className="alert alert-danger">{error}</div>}
+
+      {user.isStaff && (
+        <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
+          <TextField
+            label="Поиск по имени кандидата"
+            variant="outlined"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ flex: 1, minWidth: 200 }}
+            size="small"
+          />
+          <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
+            <InputLabel id="sort-by-label">Сортировать по</InputLabel>
+            <Select
+              labelId="sort-by-label"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              label="Сортировать по"
+            >
+              <MenuItem value="id">ID резюме</MenuItem>
+              <MenuItem value="education">Образование</MenuItem>
+              <MenuItem value="date">Дата создания</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
+            <InputLabel id="sort-order-label">Порядок</InputLabel>
+            <Select
+              labelId="sort-order-label"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              label="Порядок"
+            >
+              <MenuItem value="asc">По возрастанию</MenuItem>
+              <MenuItem value="desc">По убыванию</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+      )}
 
       {hasJobResumes || hasPracticeResumes ? (
         <>
@@ -443,7 +522,7 @@ const ResumePage = () => {
             <form onSubmit={handleSubmitResume}>
               <div className="mb-3">
                 <label htmlFor="resumeType" className="form-label">Тип заявки</label>
-                <Select
+                <SelectComponent
                   id="resumeType"
                   options={resumeTypeOptions}
                   value={resumeType}
@@ -455,7 +534,7 @@ const ResumePage = () => {
               {resumeType?.value === 'PRACTICE' && (
                 <div className="mb-3">
                   <label htmlFor="practiceType" className="form-label">Тип практики</label>
-                  <Select
+                  <SelectComponent
                     id="practiceType"
                     options={practiceTypeOptions}
                     value={practiceType}
@@ -478,7 +557,7 @@ const ResumePage = () => {
               </div>
               <div className="mb-3">
                 <label htmlFor="education" className="form-label">Образование</label>
-                <Select
+                <SelectComponent
                   id="education"
                   options={educationOptions}
                   value={education}
@@ -538,7 +617,7 @@ const ResumePage = () => {
               <div className="modal-body">
                 <div className="mb-3">
                   <label htmlFor="editResumeType" className="form-label">Тип заявки</label>
-                  <Select
+                  <SelectComponent
                     id="editResumeType"
                     options={resumeTypeOptions}
                     value={editResumeType}
@@ -550,7 +629,7 @@ const ResumePage = () => {
                 {editResumeType?.value === 'PRACTICE' && (
                   <div className="mb-3">
                     <label htmlFor="editPracticeType" className="form-label">Тип практики</label>
-                    <Select
+                    <SelectComponent
                       id="editPracticeType"
                       options={practiceTypeOptions}
                       value={editPracticeType}
@@ -573,7 +652,7 @@ const ResumePage = () => {
                 </div>
                 <div className="mb-3">
                   <label htmlFor="editEducation" className="form-label">Образование</label>
-                  <Select
+                  <SelectComponent
                     id="editEducation"
                     options={educationOptions}
                     value={editEducation}
@@ -701,7 +780,7 @@ const ResumePage = () => {
         </div>
       </div>
       {showViewModal && <div className="modal-backdrop fade show"></div>}
-    </div>
+    </Box>
   );
 };
 
