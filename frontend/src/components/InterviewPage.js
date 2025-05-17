@@ -457,30 +457,30 @@ const InterviewPage = () => {
                 {selectedResumeType === 'PRACTICE' && (
                   <div className="mb-3">
                     <label htmlFor="practiceTypeSelect" className="form-label">Тип практики</label>
-                    <Select
-                      id="practiceTypeSelect"
-                      options={[
-                        { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
-                        { value: 'PRODUCTION', label: 'Производственная' },
-                        { value: 'EDUCATIONAL', label: 'Учебная' },
-                      ]}
-                      value={
-                        selectedPracticeType
-                          ? {
-                              value: selectedPracticeType,
-                              label:
-                                selectedPracticeType === 'PRE_DIPLOMA'
-                                  ? 'Преддипломная'
-                                  : selectedPracticeType === 'PRODUCTION'
-                                  ? 'Производственная'
-                                  : 'Учебная',
-                            }
-                          : null
-                      }
-                      onChange={(option) => setSelectedPracticeType(option.value)}
-                      placeholder="Выберите тип практики"
-                      isClearable
-                    />
+                      <Select
+                        id="practiceTypeSelect"
+                        options={[
+                          { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
+                          { value: 'PRODUCTION', label: 'Производственная' },
+                          { value: 'EDUCATIONAL', label: 'Учебная' },
+                        ]}
+                        value={
+                          selectedPracticeType
+                            ? {
+                                value: selectedPracticeType,
+                                label:
+                                  selectedPracticeType === 'PRE_DIPLOMA'
+                                    ? 'Преддипломная'
+                                    : selectedPracticeType === 'PRODUCTION'
+                                    ? 'Производственная'
+                                    : 'Учебная',
+                              }
+                            : null
+                        }
+                        onChange={(option) => setSelectedPracticeType(option ? option.value : '')} // Исправлено
+                        placeholder="Выберите тип практики"
+                        isClearable
+                      />
                   </div>
                 )}
                 <div className="mb-3">

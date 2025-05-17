@@ -6,6 +6,7 @@ import { Navigate } from 'react-router-dom';
 import Select from 'react-select';
 import { IMaskInput } from 'react-imask';
 import { FaEye, FaEdit, FaTrash } from 'react-icons/fa';
+import { Tabs, Tab, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 
 const ResumePage = () => {
   const { user, loading } = useContext(AuthContext);
@@ -28,6 +29,7 @@ const ResumePage = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [resumeToView, setResumeToView] = useState(null);
   const [statusComment, setStatusComment] = useState('');
+  const [activeTab, setActiveTab] = useState('JOB');
 
   const educationOptions = [
     { value: 'SECONDARY', label: 'Среднее' },
@@ -65,7 +67,16 @@ const ResumePage = () => {
       .get(resumeUrl, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((response) => setResumes(response.data))
+      .then((response) => {
+        setResumes(response.data);
+        const hasJobResumes = response.data.some((resume) => resume.resume_type === 'JOB');
+        const hasPracticeResumes = response.data.some((resume) => resume.resume_type === 'PRACTICE');
+        if (hasJobResumes) {
+          setActiveTab('JOB');
+        } else if (hasPracticeResumes) {
+          setActiveTab('PRACTICE');
+        }
+      })
       .catch((err) => {
         const errorMsg = err.response?.data?.error || 'Не удалось загрузить резюме';
         setError(errorMsg);
@@ -115,9 +126,17 @@ const ResumePage = () => {
       setEducation(null);
       setPhoneNumber('');
       setResumeType(null);
-      setPracticeType(null);
+      // Сохраняем practiceType, если resumeType остался PRACTICE, чтобы поле не очищалось
+      if (response.data.resume_type === 'PRACTICE' && response.data.practice_type) {
+        setPracticeType(
+          practiceTypeOptions.find((opt) => opt.value === response.data.practice_type) || null
+        );
+      } else {
+        setPracticeType(null);
+      }
       setError('');
       toast.success('Резюме успешно отправлено!');
+      setActiveTab(response.data.resume_type);
     } catch (err) {
       const errorMsg =
         err.response?.data?.content ||
@@ -150,6 +169,17 @@ const ResumePage = () => {
       setResumes(resumes.filter((resume) => resume.id !== resumeToDelete));
       toast.success('Резюме успешно удалено!');
       handleCloseDeleteModal();
+      const hasJobResumes = resumes.some(
+        (resume) => resume.id !== resumeToDelete && resume.resume_type === 'JOB'
+      );
+      const hasPracticeResumes = resumes.some(
+        (resume) => resume.id !== resumeToDelete && resume.resume_type === 'PRACTICE'
+      );
+      if (activeTab === 'JOB' && !hasJobResumes && hasPracticeResumes) {
+        setActiveTab('PRACTICE');
+      } else if (activeTab === 'PRACTICE' && !hasPracticeResumes && hasJobResumes) {
+        setActiveTab('JOB');
+      }
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Ошибка при удалении резюме';
       toast.error(errorMsg);
@@ -219,6 +249,7 @@ const ResumePage = () => {
       setResumes(resumes.map((resume) => (resume.id === resumeToEdit ? response.data : resume)));
       toast.success('Резюме успешно обновлено!');
       handleCloseEditModal();
+      setActiveTab(response.data.resume_type);
     } catch (err) {
       const errorMsg =
         err.response?.data?.content ||
@@ -267,6 +298,10 @@ const ResumePage = () => {
     }
   };
 
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   if (loading) {
     return (
       <div className="container mt-5 text-center">
@@ -281,50 +316,61 @@ const ResumePage = () => {
     return <Navigate to="/login" />;
   }
 
-  return (
-    <div className="container mt-5">
-      <h1 className="text-center mb-4">Личный кабинет</h1>
-      {error && <div className="alert alert-danger">{error}</div>}
+  const jobResumes = resumes.filter((resume) => resume.resume_type === 'JOB');
+  const practiceResumes = resumes.filter((resume) => resume.resume_type === 'PRACTICE');
+  const hasJobResumes = jobResumes.length > 0;
+  const hasPracticeResumes = practiceResumes.length > 0;
 
+  const renderResumeTable = (resumeType) => {
+    const resumesToShow = resumeType === 'JOB' ? jobResumes : practiceResumes;
+    const isPractice = resumeType === 'PRACTICE';
+
+    return (
       <div className="card mb-4">
-        <h2 className="card-header">{user.isStaff ? 'Все резюме' : 'Ваши резюме'}</h2>
+        <h2 className="card-header">
+          {user.isStaff
+            ? `Резюме на ${isPractice ? 'практику' : 'работу'}`
+            : `Ваши резюме на ${isPractice ? 'практику' : 'работу'}`}
+        </h2>
         <div className="card-body">
-          {resumes.length === 0 ? (
-            <p>{user.isStaff ? 'Резюме отсутствуют.' : 'У вас пока нет резюме.'}</p>
+          {resumesToShow.length === 0 ? (
+            <p>
+              {user.isStaff
+                ? `Резюме на ${isPractice ? 'практику' : 'работу'} отсутствуют.`
+                : `У вас пока нет резюме на ${isPractice ? 'практику' : 'работу'}.`}
+            </p>
           ) : (
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Кандидат</th>
-                  <th>Тип заявки</th>
-                  <th>Тип практики</th>
-                  <th>Содержание</th>
-                  <th>Образование</th>
-                  <th>Телефон</th>
-                  <th>Статус</th>
-                  <th>Дата создания</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resumes.map((resume) => (
-                  <tr key={resume.id}>
-                    <td>
+            <Table className="table table-striped">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Кандидат</TableCell>
+                  {isPractice && <TableCell>Тип практики</TableCell>}
+                  <TableCell>Содержание</TableCell>
+                  <TableCell>Образование</TableCell>
+                  <TableCell>Телефон</TableCell>
+                  <TableCell>Статус</TableCell>
+                  <TableCell>Дата создания</TableCell>
+                  <TableCell align="center">Действия</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {resumesToShow.map((resume) => (
+                  <TableRow key={resume.id}>
+                    <TableCell>
                       {resume.candidate?.user
                         ? `${resume.candidate.user.last_name || ''} ${resume.candidate.user.first_name || ''} ${
                             resume.candidate.user.patronymic || ''
                           }`.trim()
                         : 'Кандидат не указан'}
-                    </td>
-                    <td>{resume.resume_type === 'JOB' ? 'Работа' : 'Практика'}</td>
-                    <td>{resume.practice_type_display || '-'}</td>
-                    <td>{resume.content.substring(0, 50)}...</td>
-                    <td>{resume.education_display || 'Не указано'}</td>
-                    <td>{resume.phone_number || 'Не указан'}</td>
-                    <td>{resume.status_display}</td>
-                    <td>{new Date(resume.created_at).toLocaleDateString()}</td>
-                    <td className="align-middle">
-                      <div className="d-flex align-items-center gap-2">
+                    </TableCell>
+                    {isPractice && <TableCell>{resume.practice_type_display || '-'}</TableCell>}
+                    <TableCell>{resume.content.substring(0, 50)}...</TableCell>
+                    <TableCell>{resume.education_display || 'Не указано'}</TableCell>
+                    <TableCell>{resume.phone_number || 'Не указан'}</TableCell>
+                    <TableCell>{resume.status_display}</TableCell>
+                    <TableCell>{new Date(resume.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell align="center">
+                      <div className="d-flex align-items-center gap-2 justify-content-center">
                         <button
                           className="btn btn-square btn-primary"
                           onClick={() => handleOpenViewModal(resume)}
@@ -355,14 +401,40 @@ const ResumePage = () => {
                           </>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="container mt-5">
+      <h1 className="text-center mb-4">Личный кабинет</h1>
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      {hasJobResumes || hasPracticeResumes ? (
+        <>
+          <Tabs value={activeTab} onChange={handleTabChange} aria-label="Резюме по типу">
+            {hasJobResumes && <Tab label="Работа" value="JOB" />}
+            {hasPracticeResumes && <Tab label="Практика" value="PRACTICE" />}
+          </Tabs>
+          <div className="mt-4">
+            {activeTab === 'JOB' && hasJobResumes && renderResumeTable('JOB')}
+            {activeTab === 'PRACTICE' && hasPracticeResumes && renderResumeTable('PRACTICE')}
+          </div>
+        </>
+      ) : (
+        <div className="card mb-4">
+          <div className="card-body">
+            <p>{user.isStaff ? 'Резюме отсутствуют.' : 'У вас пока нет резюме.'}</p>
+          </div>
+        </div>
+      )}
 
       {!user.isStaff && (
         <div className="card mb-4">

@@ -51,13 +51,14 @@ class ResumeSerializer(serializers.ModelSerializer):
     candidate = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
     education_display = serializers.SerializerMethodField()
+    practice_type_display = serializers.SerializerMethodField()  # Добавлено
     resume_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['JOB', 'PRACTICE']], required=True)
     practice_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['PRE_DIPLOMA', 'PRODUCTION', 'EDUCATIONAL']], required=False, allow_null=True)
 
     class Meta:
         model = Resume
-        fields = ['id', 'content', 'education', 'education_display', 'phone_number', 'status', 'status_display', 'created_at', 'candidate', 'comment', 'resume_type', 'practice_type']
-        read_only_fields = ['id', 'status', 'status_display', 'created_at', 'candidate', 'education_display', 'comment']
+        fields = ['id', 'content', 'education', 'education_display', 'phone_number', 'status', 'status_display', 'created_at', 'candidate', 'comment', 'resume_type', 'practice_type', 'practice_type_display']
+        read_only_fields = ['id', 'status', 'status_display', 'created_at', 'candidate', 'education_display', 'comment', 'practice_type_display']
 
     def get_candidate(self, obj):
         if obj.candidate and obj.candidate.user:
@@ -87,6 +88,15 @@ class ResumeSerializer(serializers.ModelSerializer):
             'POSTGRADUATE': 'Аспирантура',
             '': 'Не указано'
         }.get(obj.education, obj.education)
+
+    def get_practice_type_display(self, obj):
+        return {
+            'PRE_DIPLOMA': 'Преддипломная',
+            'PRODUCTION': 'Производственная',
+            'EDUCATIONAL': 'Учебная',
+            '': '-',
+            None: '-'
+        }.get(obj.practice_type, obj.practice_type)
 
     def validate_content(self, value):
         if not value.strip():
