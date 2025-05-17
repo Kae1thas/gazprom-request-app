@@ -374,6 +374,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             candidate = Candidate.objects.get(user=request.user)
             interview = Interview.objects.filter(candidate=candidate, result='SUCCESS').first()
             logger.info(f"DocumentViewSet.create: Candidate {candidate.id}, has_successful_interview={candidate.has_successful_interview}, found interview={interview.id if interview else None}")
+            logger.info(f"Request data: {request.data}")
             if not interview:
                 return Response({'error': 'У вас нет успешного собеседования для загрузки документов'}, status=status.HTTP_403_FORBIDDEN)
         except Candidate.DoesNotExist:
@@ -392,53 +393,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     user=interview.candidate.user,
                     message=f'Ваш документ #{document.id} ({document.document_type}) успешно загружен.',
                     type='DOCUMENT',
-                    sent_to_email=True
-                )
-                send_notification_email(
-                    subject='Документ загружен',
-                    template_name='emails/document_notification.html',
-                    context={
-                        'user': interview.candidate.user,
-                        'document_id': document.id,
-                        'document_type': document.document_type
-                    },
-                    recipient_list=[interview.candidate.user.email]
+                    sent_to_email=False
                 )
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except IntegrityError as e:
+                logger.error(f"IntegrityError: {str(e)}")
                 return Response({'error': f'Документ этого типа уже загружен для данного собеседования'}, status=status.HTTP_400_BAD_REQUEST)
+        logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, pk=None):
-        try:
-            document = Document.objects.get(pk=pk, interview__candidate__user=request.user)
-        except Document.DoesNotExist:
-            return Response({'error': 'Документ не найден или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
-
-        DocumentHistory.objects.create(
-            document=document,
-            status='DELETED',
-            comment='Документ удалён пользователем'
-        )
-        document.delete()
-        Notification.objects.create(
-            user=document.interview.candidate.user,
-            message=f'Ваш документ #{pk} ({document.document_type}) удалён.',
-            type='DOCUMENT',
-            sent_to_email=True
-        )
-        send_notification_email(
-            subject='Документ удален',
-            template_name='emails/document_notification.html',
-            context={
-                'user': document.interview.candidate.user,
-                'document_id': pk,
-                'document_type': document.document_type,
-                'status': 'Удален'
-            },
-            recipient_list=[document.interview.candidate.user.email]
-        )
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated, IsAdminUser])
     def status(self, request, pk=None):

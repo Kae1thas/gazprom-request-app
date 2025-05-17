@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Button } from '@mui/material';
+import {
+  Button, Tabs, Tab, Table, TableBody, TableCell, TableHead, TableRow,
+  TextField, Select, MenuItem, FormControl, InputLabel, Box, Typography
+} from '@mui/material';
 import { FaEye } from 'react-icons/fa';
-import Select from 'react-select';
+import ReactSelect from 'react-select';
 
 const InterviewPage = () => {
   const { user, loading, fetchUser } = useContext(AuthContext);
@@ -19,9 +22,32 @@ const InterviewPage = () => {
   const [employees, setEmployees] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [selectedResumeType, setSelectedResumeType] = useState('JOB');
-  const [selectedPracticeType, setSelectedPracticeType] = useState('');
+  const [selectedResumeType, setSelectedResumeType] = useState(null);
+  const [selectedPracticeType, setSelectedPracticeType] = useState(null);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [activeTab, setActiveTab] = useState('JOB');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortOrder, setSortOrder] = useState('asc');
+
+  const resumeTypeOptions = [
+    { value: 'JOB', label: 'Работа' },
+    { value: 'PRACTICE', label: 'Практика' },
+  ];
+
+  const practiceTypeOptions = [
+    { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
+    { value: 'PRODUCTION', label: 'Производственная' },
+    { value: 'EDUCATIONAL', label: 'Учебная' },
+  ];
+
+  const practiceTypeDisplayMap = {
+    'PRE_DIPLOMA': 'Преддипломная',
+    'PRODUCTION': 'Производственная',
+    'EDUCATIONAL': 'Учебная',
+    '': '-',
+    null: '-'
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -44,6 +70,14 @@ const InterviewPage = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         setInterviews(interviewResponse.data);
+
+        const hasJobInterviews = interviewResponse.data.some((interview) => interview.resume_type === 'JOB');
+        const hasPracticeInterviews = interviewResponse.data.some((interview) => interview.resume_type === 'PRACTICE');
+        if (hasJobInterviews) {
+          setActiveTab('JOB');
+        } else if (hasPracticeInterviews) {
+          setActiveTab('PRACTICE');
+        }
 
         if (user.isStaff) {
           const [candidatesResponse, employeesResponse] = await Promise.all([
@@ -87,8 +121,8 @@ const InterviewPage = () => {
     setShowCreateModal(true);
     setSelectedCandidate(null);
     setSelectedEmployee(null);
-    setSelectedResumeType('JOB');
-    setSelectedPracticeType('');
+    setSelectedResumeType(null);
+    setSelectedPracticeType(null);
     setScheduledAt('');
   };
 
@@ -96,21 +130,21 @@ const InterviewPage = () => {
     setShowCreateModal(false);
     setSelectedCandidate(null);
     setSelectedEmployee(null);
-    setSelectedResumeType('JOB');
-    setSelectedPracticeType('');
+    setSelectedResumeType(null);
+    setSelectedPracticeType(null);
     setScheduledAt('');
   };
 
   const handleCreateInterview = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
-    if (!selectedCandidate || !selectedEmployee || !scheduledAt) {
+    if (!selectedCandidate || !selectedEmployee || !scheduledAt || !selectedResumeType) {
       const errorMsg = 'Заполните все обязательные поля';
       setError(errorMsg);
       toast.error(errorMsg);
       return;
     }
-    if (selectedResumeType === 'PRACTICE' && !selectedPracticeType) {
+    if (selectedResumeType?.value === 'PRACTICE' && !selectedPracticeType) {
       const errorMsg = 'Выберите тип практики';
       setError(errorMsg);
       toast.error(errorMsg);
@@ -121,8 +155,8 @@ const InterviewPage = () => {
       candidate: selectedCandidate.value,
       employee: selectedEmployee.value,
       scheduled_at: new Date(scheduledAt).toISOString(),
-      resume_type: selectedResumeType,
-      ...(selectedResumeType === 'PRACTICE' && { practice_type: selectedPracticeType }),
+      resume_type: selectedResumeType.value,
+      ...(selectedResumeType?.value === 'PRACTICE' && { practice_type: selectedPracticeType?.value }),
     };
 
     try {
@@ -134,6 +168,7 @@ const InterviewPage = () => {
       setInterviews([...interviews, response.data]);
       toast.success('Собеседование успешно назначено!');
       handleCloseCreateModal();
+      setActiveTab(response.data.resume_type);
     } catch (err) {
       const errorMsg = (
         err.response?.data?.non_field_errors ||
@@ -183,73 +218,103 @@ const InterviewPage = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  if (loading) {
+  const jobInterviews = interviews.filter((interview) => interview.resume_type === 'JOB');
+  const practiceInterviews = interviews.filter((interview) => interview.resume_type === 'PRACTICE');
+  const hasJobInterviews = jobInterviews.length > 0;
+  const hasPracticeInterviews = practiceInterviews.length > 0;
+
+  const filteredInterviews = useMemo(() => {
+    let result = activeTab === 'JOB' ? [...jobInterviews] : [...practiceInterviews];
+
+    if (searchQuery) {
+      result = result.filter((interview) =>
+        `${interview.candidate.user.last_name} ${interview.candidate.user.first_name}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      );
+    }
+
+    result.sort((a, b) => {
+      if (sortBy === 'id') {
+        return sortOrder === 'asc' ? a.id - b.id : b.id - a.id;
+      } else if (sortBy === 'name') {
+        const nameA = `${a.candidate.user.last_name} ${a.candidate.user.first_name}`.toLowerCase();
+        const nameB = `${b.candidate.user.last_name} ${b.candidate.user.first_name}`.toLowerCase();
+        return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortBy === 'date') {
+        const dateA = new Date(a.scheduled_at || '1970-01-01');
+        const dateB = new Date(b.scheduled_at || '1970-01-01');
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [interviews, searchQuery, sortBy, sortOrder, activeTab]);
+
+  const renderInterviewTable = (interviewType) => {
+    const interviewsToShow = filteredInterviews;
+    const isPractice = interviewType === 'PRACTICE';
+
     return (
-      <div className="container mt-5 text-center">
-        <div className="spinner-border" role="status">
-          <span className="visually-hidden">Загрузка...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-
-  return (
-    <div className="container mt-5">
-      <h1 className="mb-4">Собеседования</h1>
       <div className="card mb-4">
-        <h2 className="card-header">{user.isStaff ? 'Все собеседования' : 'Ваши собеседования'}</h2>
+        <h2 className="card-header">
+          {user.isStaff
+            ? `Собеседования на ${isPractice ? 'практику' : 'работу'}`
+            : `Ваши собеседования на ${isPractice ? 'практику' : 'работу'}`}
+        </h2>
         <div className="card-body">
-          {user.isStaff && (
-            <Button
-              variant="contained"
-              color="primary"
-              className="mb-3"
-              onClick={handleOpenCreateModal}
-            >
-              Назначить собеседование
-            </Button>
-          )}
-          {interviews.length === 0 ? (
-            <p>{user.isStaff ? 'Собеседования отсутствуют.' : 'У вас пока нет запланированных собеседований.'}</p>
+          {interviewsToShow.length === 0 ? (
+            <p>
+              {user.isStaff
+                ? `Собеседования на ${isPractice ? 'практику' : 'работу'} отсутствуют.`
+                : `У вас пока нет запланированных собеседований на ${isPractice ? 'практику' : 'работу'}.`}
+            </p>
           ) : (
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Кандидат</th>
-                  <th>Сотрудник</th>
-                  <th>Тип заявки</th>
-                  <th>Тип практики</th>
-                  <th>Дата и время</th>
-                  <th>Статус</th>
-                  <th>Результат</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {interviews.map((interview) => (
-                  <tr key={interview.id}>
-                    <td>
+            <Table className="table table-striped">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Кандидат</TableCell>
+                  <TableCell>Сотрудник</TableCell>
+                  {isPractice && <TableCell>Тип практики</TableCell>}
+                  <TableCell>Дата и время</TableCell>
+                  <TableCell>Статус</TableCell>
+                  <TableCell>Результат</TableCell>
+                  <TableCell align="center">Действия</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {interviewsToShow.map((interview) => (
+                  <TableRow key={interview.id}>
+                    <TableCell>
                       {interview.candidate?.user
                         ? `${interview.candidate.user.last_name || ''} ${interview.candidate.user.first_name || ''} ${
                             interview.candidate.user.patronymic || ''
                           }`.trim()
                         : 'Кандидат не указан'}
-                    </td>
-                    <td>
-                      {interview.employee
+                    </TableCell>
+                    <TableCell>
+                      {interview.employee?.user
                         ? `${interview.employee.user.last_name || ''} ${interview.employee.user.first_name || ''} ${
                             interview.employee.user.patronymic || ''
                           }`.trim()
                         : 'Сотрудник не указан'}
-                    </td>
-                    <td>{interview.resume_type === 'JOB' ? 'Работа' : 'Практика'}</td>
-                    <td>{interview.practice_type_display || '-'}</td>
-                    <td>{new Date(interview.scheduled_at).toLocaleString()}</td>
-                    <td>
+                    </TableCell>
+                    {isPractice && (
+                      <TableCell>
+                        {interview.practice_type_display || practiceTypeDisplayMap[interview.practice_type] || '-'}
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      {new Date(interview.scheduled_at).toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </TableCell>
+                    <TableCell>
                       <span
                         className={`badge ${
                           interview.status === 'SCHEDULED'
@@ -265,8 +330,8 @@ const InterviewPage = () => {
                           ? 'Проведено'
                           : 'Отменено'}
                       </span>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <span
                         className={`badge ${
                           interview.result === 'SUCCESS'
@@ -282,8 +347,8 @@ const InterviewPage = () => {
                           ? 'Неуспешно'
                           : 'Ожидает'}
                       </span>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell align="center">
                       <button
                         className="btn btn-square btn-primary"
                         onClick={() => handleOpenViewModal(interview)}
@@ -291,14 +356,99 @@ const InterviewPage = () => {
                       >
                         <FaEye />
                       </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
       </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <Box className="container mx-auto mt-5 text-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Загрузка...</span>
+        </div>
+      </Box>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return (
+    <Box className="container mx-auto mt-5 pl-64 pt-20">
+      <Typography variant="h4" className="mb-4">Собеседования</Typography>
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      <Box className="flex gap-4 mb-4">
+        <TextField
+          label="Поиск по имени кандидата"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1"
+          size="small"
+        />
+        <FormControl variant="outlined" size="small" className="w-40">
+          <InputLabel>Сортировать по</InputLabel>
+          <Select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            label="Сортировать по"
+          >
+            <MenuItem value="id">ID собеседования</MenuItem>
+            <MenuItem value="name">Имя кандидата</MenuItem>
+            <MenuItem value="date">Дата собеседования</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl variant="outlined" size="small" className="w-40">
+          <InputLabel>Порядок</InputLabel>
+          <Select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            label="Порядок"
+          >
+            <MenuItem value="asc">По возрастанию</MenuItem>
+            <MenuItem value="desc">По убыванию</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      {hasJobInterviews || hasPracticeInterviews ? (
+        <>
+          <Tabs value={activeTab} onChange={(event, newValue) => setActiveTab(newValue)} aria-label="Собеседования по типу">
+            {hasJobInterviews && <Tab label="Трудоустройство" value="JOB" />}
+            {hasPracticeInterviews && <Tab label="Учебная практика" value="PRACTICE" />}
+          </Tabs>
+          <div className="mt-4">
+            {activeTab === 'JOB' && hasJobInterviews && renderInterviewTable('JOB')}
+            {activeTab === 'PRACTICE' && hasPracticeInterviews && renderInterviewTable('PRACTICE')}
+          </div>
+        </>
+      ) : (
+        <div className="card mb-4">
+          <div className="card-body">
+            <p>{user.isStaff ? 'Собеседования отсутствуют.' : 'У вас пока нет запланированных собеседований.'}</p>
+          </div>
+        </div>
+      )}
+
+      {user.isStaff && (
+        <Button
+          variant="contained"
+          color="primary"
+          className="mb-3"
+          onClick={handleOpenCreateModal}
+        >
+          Назначить собеседование
+        </Button>
+      )}
 
       <div className={`modal fade ${showViewModal ? 'show' : ''}`} style={{ display: showViewModal ? 'block' : 'none' }} tabIndex="-1">
         <div className="modal-dialog modal-lg">
@@ -333,11 +483,19 @@ const InterviewPage = () => {
                   </p>
                   {interviewToView.resume_type === 'PRACTICE' && (
                     <p>
-                      <strong>Тип практики:</strong> {interviewToView.practice_type_display || '-'}
+                      <strong>Тип практики:</strong>{' '}
+                      {interviewToView.practice_type_display || practiceTypeDisplayMap[interviewToView.practice_type] || '-'}
                     </p>
                   )}
                   <p>
-                    <strong>Дата и время:</strong> {new Date(interviewToView.scheduled_at).toLocaleString()}
+                    <strong>Дата и время:</strong>{' '}
+                    {new Date(interviewToView.scheduled_at).toLocaleString('ru-RU', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </p>
                   <p>
                     <strong>Статус:</strong>{' '}
@@ -421,7 +579,7 @@ const InterviewPage = () => {
               <div className="modal-body">
                 <div className="mb-3">
                   <label htmlFor="candidateSelect" className="form-label">Кандидат</label>
-                  <Select
+                  <ReactSelect
                     id="candidateSelect"
                     options={candidates}
                     value={selectedCandidate}
@@ -432,7 +590,7 @@ const InterviewPage = () => {
                 </div>
                 <div className="mb-3">
                   <label htmlFor="employeeSelect" className="form-label">Сотрудник</label>
-                  <Select
+                  <ReactSelect
                     id="employeeSelect"
                     options={employees}
                     value={selectedEmployee}
@@ -443,44 +601,29 @@ const InterviewPage = () => {
                 </div>
                 <div className="mb-3">
                   <label htmlFor="resumeTypeSelect" className="form-label">Тип заявки</label>
-                  <Select
+                  <ReactSelect
                     id="resumeTypeSelect"
-                    options={[
-                      { value: 'JOB', label: 'Работа' },
-                      { value: 'PRACTICE', label: 'Практика' },
-                    ]}
-                    value={{ value: selectedResumeType, label: selectedResumeType === 'JOB' ? 'Работа' : 'Практика' }}
-                    onChange={(option) => setSelectedResumeType(option.value)}
+                    options={resumeTypeOptions}
+                    value={selectedResumeType}
+                    onChange={(option) => {
+                      setSelectedResumeType(option);
+                      if (option?.value !== 'PRACTICE') setSelectedPracticeType(null);
+                    }}
                     placeholder="Выберите тип заявки"
+                    isClearable
                   />
                 </div>
-                {selectedResumeType === 'PRACTICE' && (
+                {selectedResumeType?.value === 'PRACTICE' && (
                   <div className="mb-3">
                     <label htmlFor="practiceTypeSelect" className="form-label">Тип практики</label>
-                      <Select
-                        id="practiceTypeSelect"
-                        options={[
-                          { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
-                          { value: 'PRODUCTION', label: 'Производственная' },
-                          { value: 'EDUCATIONAL', label: 'Учебная' },
-                        ]}
-                        value={
-                          selectedPracticeType
-                            ? {
-                                value: selectedPracticeType,
-                                label:
-                                  selectedPracticeType === 'PRE_DIPLOMA'
-                                    ? 'Преддипломная'
-                                    : selectedPracticeType === 'PRODUCTION'
-                                    ? 'Производственная'
-                                    : 'Учебная',
-                              }
-                            : null
-                        }
-                        onChange={(option) => setSelectedPracticeType(option ? option.value : '')} // Исправлено
-                        placeholder="Выберите тип практики"
-                        isClearable
-                      />
+                    <ReactSelect
+                      id="practiceTypeSelect"
+                      options={practiceTypeOptions}
+                      value={selectedPracticeType}
+                      onChange={setSelectedPracticeType}
+                      placeholder="Выберите тип практики"
+                      isClearable
+                    />
                   </div>
                 )}
                 <div className="mb-3">
@@ -508,7 +651,7 @@ const InterviewPage = () => {
         </div>
       </div>
       {showCreateModal && <div className="modal-backdrop fade show"></div>}
-    </div>
+    </Box>
   );
 };
 

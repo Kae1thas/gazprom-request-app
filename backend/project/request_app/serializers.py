@@ -182,7 +182,8 @@ class InterviewCreateSerializer(serializers.ModelSerializer):
         employee = data['employee']
         scheduled_at = data['scheduled_at']
         resume_type = data['resume_type']
-        practice_type = data['practice_type']
+        practice_type = data.get('practice_type')
+
         if not Resume.objects.filter(candidate=candidate, status='ACCEPTED', resume_type=resume_type).exists():
             raise serializers.ValidationError("Кандидат должен иметь хотя бы одно принятое резюме для указанного типа заявки")
         if resume_type == 'PRACTICE' and not practice_type:
@@ -252,8 +253,8 @@ class DocumentSerializer(serializers.ModelSerializer):
         return data
 
     def validate_file_path(self, value):
-        if not value.name.endswith(('.pdf', '.doc', '.docx')):
-            raise serializers.ValidationError('Файл должен быть в формате PDF, DOC или DOCX')
+        if not value.name.endswith('.pdf'):
+            raise serializers.ValidationError('Файл должен быть в формате PDF')
         if value.size > 5 * 1024 * 1024:  # 5MB
             raise serializers.ValidationError('Размер файла не должен превышать 5 МБ')
         return value

@@ -21,9 +21,8 @@ const jobDocumentTypes = [
 
 const practiceDocumentTypes = [
   'Паспорт',
-  'Справка с учебы',
-  'Учебный договор с организацией',
-  'Заявка-шаблон с сайта',
+  'Договор о практике',
+  'Заявление на практику',
 ];
 
 const DocumentsPage = () => {
@@ -45,7 +44,7 @@ const DocumentsPage = () => {
     }
 
     if (!hasSuccessfulInterview.JOB && !hasSuccessfulInterview.PRACTICE) {
-      setError('У вас нет успешного собеседования для загрузки документов');
+      setError('У вас нет успешного собеседования. Пройдите собеседование, чтобы загрузить документы.');
       return;
     }
 
@@ -55,25 +54,33 @@ const DocumentsPage = () => {
       return;
     }
 
-    axios
-      .get('http://localhost:8000/api/documents/', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((response) => {
+    const fetchDocuments = async () => {
+      try {
+        const response = await axios.get('http://localhost:8000/api/documents/', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log('Fetched documents (raw):', JSON.stringify(response.data, null, 2));
         setDocuments(response.data);
-      })
-      .catch(() => {
+      } catch (err) {
+        console.error('Error fetching documents:', err);
         setError('Не удалось загрузить документы');
-      });
+      }
+    };
+
+    fetchDocuments();
   }, [user, loading, interviewLoading, hasSuccessfulInterview]);
 
   const handleUpload = async (slot, file, resumeType) => {
+    if (!file) {
+      toast.error('Выберите файл для загрузки');
+      return;
+    }
+
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file_path', file);
     const documentType = resumeType === 'JOB' ? effectiveJobDocumentTypes[slot - 1] : practiceDocumentTypes[slot - 1];
     formData.append('document_type', documentType);
-    formData.append('resume_type', resumeType);
 
     try {
       const response = await axios.post(
@@ -82,9 +89,20 @@ const DocumentsPage = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success(`Документ "${documentType}" успешно загружен!`);
-      setDocuments((prev) => [...prev, response.data]);
+
+      const documentsResponse = await axios.get('http://localhost:8000/api/documents/', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log('Updated documents:', JSON.stringify(documentsResponse.data, null, 2));
+      setDocuments(documentsResponse.data);
     } catch (err) {
-      toast.error(err.response?.data?.file_path || 'Ошибка при загрузке документа');
+      const errorMessage =
+        err.response?.data?.error ||
+        err.response?.data?.file_path ||
+        err.response?.data?.document_type ||
+        err.response?.data?.non_field_errors ||
+        'Ошибка при загрузке документа';
+      toast.error(errorMessage);
     }
   };
 
@@ -154,6 +172,8 @@ const DocumentsPage = () => {
       );
     }
 
+    console.log(`Rendering table for ${resumeType}, documents:`, JSON.stringify(documents, null, 2));
+
     return (
       <>
         {resumeType === 'JOB' && (
@@ -203,7 +223,8 @@ const DocumentsPage = () => {
           <TableBody>
             {documentTypes.map((type, index) => {
               const slotNumber = index + 1;
-              const doc = documents.find((d) => d.document_type === type && d.resume_type === resumeType);
+              const doc = documents.find((d) => d.document_type === type && d.interview?.resume_type === resumeType);
+              console.log(`Checking type=${type}, resumeType=${resumeType}, found doc:`, doc);
               return (
                 <TableRow key={`${resumeType}-${slotNumber}`}>
                   <TableCell>{type}</TableCell>
@@ -243,21 +264,19 @@ const DocumentsPage = () => {
                           </Button>
                         </Tooltip>
                         {doc.file_path && (
-                          <Typography variant="body2" sx={{ mb: 2 }}>
-                            <Button
-                              onClick={() => handleDownload(doc.file_path)}
-                              sx={{
-                                backgroundColor: '#ffc107',
-                                color: '#fff',
-                                '&:hover': { backgroundColor: '#e0a800' },
-                                borderRadius: '8px',
-                                minWidth: '40px',
-                                padding: '8px',
-                              }}
-                            >
-                              <Download fontSize="small" />
-                            </Button>
-                          </Typography>
+                          <Button
+                            onClick={() => handleDownload(doc.file_path)}
+                            sx={{
+                              backgroundColor: '#ffc107',
+                              color: '#fff',
+                              '&:hover': { backgroundColor: '#e0a800' },
+                              borderRadius: '8px',
+                              minWidth: '40px',
+                              padding: '8px',
+                            }}
+                          >
+                            <Download fontSize="small" />
+                          </Button>
                         )}
                         <Tooltip title="Удалить">
                           <Button
@@ -292,7 +311,7 @@ const DocumentsPage = () => {
                           <input
                             type="file"
                             hidden
-                            accept=".pdf,.doc,.docx"
+                            accept=".pdf"
                             onChange={(e) => handleUpload(slotNumber, e.target.files[0], resumeType)}
                           />
                         </Button>
