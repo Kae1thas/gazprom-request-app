@@ -3,11 +3,11 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableRow, TableHead, Button, Tooltip } from '@mui/material';
+import { Table, TableBody, TableCell, TableRow, TableHead, Button, Tooltip, Tabs, Tab, Typography } from '@mui/material';
 import { CloudUpload, Download, Visibility, Delete } from '@mui/icons-material';
 import DocumentModal from './DocumentModal';
 
-const documentTypes = [
+const jobDocumentTypes = [
   'Паспорт',
   'Аттестат/Диплом',
   'Справка с психодиспансера',
@@ -19,14 +19,22 @@ const documentTypes = [
   'Трудовая книжка (опционально)',
 ];
 
+const practiceDocumentTypes = [
+  'Паспорт',
+  'Справка с учебы',
+  'Учебный договор с организацией',
+  'Заявка-шаблон с сайта',
+];
+
 const DocumentsPage = () => {
   const { user, loading, interviewLoading, hasSuccessfulInterview } = useContext(AuthContext);
   const [documents, setDocuments] = useState([]);
   const [error, setError] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [activeTab, setActiveTab] = useState('JOB');
 
-  const effectiveDocumentTypes = user?.gender === 'MALE' ? ['Приписное/Военник', ...documentTypes] : documentTypes;
+  const effectiveJobDocumentTypes = user?.gender === 'MALE' ? ['Приписное/Военник', ...jobDocumentTypes] : jobDocumentTypes;
 
   useEffect(() => {
     if (loading || interviewLoading) return;
@@ -59,12 +67,13 @@ const DocumentsPage = () => {
       });
   }, [user, loading, interviewLoading, hasSuccessfulInterview]);
 
-  const handleUpload = async (slot, file) => {
+  const handleUpload = async (slot, file, resumeType) => {
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file_path', file);
-    const documentType = effectiveDocumentTypes[slot - 1];
+    const documentType = resumeType === 'JOB' ? effectiveJobDocumentTypes[slot - 1] : practiceDocumentTypes[slot - 1];
     formData.append('document_type', documentType);
+    formData.append('resume_type', resumeType);
 
     try {
       const response = await axios.post(
@@ -107,6 +116,10 @@ const DocumentsPage = () => {
     setSelectedDoc(null);
   };
 
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   if (loading || interviewLoading) {
     return (
       <div className="container mt-5 text-center">
@@ -132,123 +145,182 @@ const DocumentsPage = () => {
     );
   }
 
-  return (
-    <div className="container mt-5">
-      <h1 className="mb-4">Документы</h1>
-      <p>Загрузите необходимые документы для завершения процесса найма или практики.</p>
-      {error && <div className="alert alert-danger">{error}</div>}
-      <Table className="table table-striped compact-table">
-        <TableHead>
-          <TableRow>
-            <TableCell>Тип</TableCell>
-            <TableCell>Статус</TableCell>
-            <TableCell align="center">Действия</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {effectiveDocumentTypes.map((type, index) => {
-            const slotNumber = index + 1;
-            const doc = documents.find((d) => d.document_type === type);
-            return (
-              <TableRow key={slotNumber}>
-                <TableCell>{type}</TableCell>
-                <TableCell>
-                  {doc ? (
-                    <span
-                      className={`badge ${
-                        doc.status === 'ACCEPTED'
-                          ? 'bg-success'
-                          : doc.status === 'REJECTED'
-                          ? 'bg-danger'
-                          : 'bg-warning'
-                      }`}
-                    >
-                      {doc.status_display}
-                    </span>
-                  ) : (
-                    'Не загружен'
-                  )}
-                </TableCell>
-                <TableCell align="center">
-                  {doc ? (
-                    <div className="d-flex gap-1 justify-content-center">
-                      <Tooltip title="Просмотреть">
-                        <Button
-                          onClick={() => handleOpenModal(doc)}
-                          sx={{
-                            backgroundColor: '#1976d2',
-                            color: '#fff',
-                            '&:hover': { backgroundColor: '#1565c0' },
-                            borderRadius: '8px',
-                            minWidth: '40px',
-                            padding: '8px',
-                          }}
-                        >
-                          <Visibility fontSize="small" />
-                        </Button>
-                      </Tooltip>
-                      {doc.file_path && (
-                        <Tooltip title="Скачать">
+  const renderDocumentTable = (documentTypes, resumeType) => {
+    if (!hasSuccessfulInterview[resumeType]) {
+      return (
+        <div className="alert alert-warning">
+          У вас нет успешного собеседования для {resumeType === 'JOB' ? 'трудоустройства' : 'практики'}.
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {resumeType === 'JOB' && (
+          <>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <a
+                href="http://localhost:8000/media/templates/personal_data_consent_template.docx"
+                download
+                className="text-primary"
+                style={{ textDecoration: 'underline' }}
+              >
+                Скачать шаблон согласия на обработку персональных данных (DOCX)
+              </a>
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              <a
+                href="http://localhost:8000/media/templates/autobiography_template.doc"
+                download
+                className="text-primary"
+                style={{ textDecoration: 'underline' }}
+              >
+                Скачать шаблон для заполнения автобиографии (DOC)
+              </a>
+            </Typography>
+          </>
+        )}
+        {resumeType === 'PRACTICE' && (
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            <a
+              href="http://localhost:8000/media/templates/practice_application_template.docx"
+              download
+              className="text-primary"
+              style={{ textDecoration: 'underline' }}
+            >
+              Скачать шаблон заявки на прохождение практики (DOCX)
+            </a>
+          </Typography>
+        )}
+        <Table className="table table-striped compact-table">
+          <TableHead>
+            <TableRow>
+              <TableCell>Тип</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell align="center">Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {documentTypes.map((type, index) => {
+              const slotNumber = index + 1;
+              const doc = documents.find((d) => d.document_type === type && d.resume_type === resumeType);
+              return (
+                <TableRow key={`${resumeType}-${slotNumber}`}>
+                  <TableCell>{type}</TableCell>
+                  <TableCell>
+                    {doc ? (
+                      <span
+                        className={`badge ${
+                          doc.status === 'ACCEPTED'
+                            ? 'bg-success'
+                            : doc.status === 'REJECTED'
+                            ? 'bg-danger'
+                            : 'bg-warning'
+                        }`}
+                      >
+                        {doc.status_display}
+                      </span>
+                    ) : (
+                      'Не загружен'
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    {doc ? (
+                      <div className="d-flex gap-1 justify-content-center">
+                        <Tooltip title="Просмотреть">
                           <Button
-                            onClick={() => handleDownload(doc.file_path)}
+                            onClick={() => handleOpenModal(doc)}
                             sx={{
-                              backgroundColor: '#ffc107',
+                              backgroundColor: '#1976d2',
                               color: '#fff',
-                              '&:hover': { backgroundColor: '#e0a800' },
+                              '&:hover': { backgroundColor: '#1565c0' },
                               borderRadius: '8px',
                               minWidth: '40px',
                               padding: '8px',
                             }}
                           >
-                            <Download fontSize="small" />
+                            <Visibility fontSize="small" />
                           </Button>
                         </Tooltip>
-                      )}
-                      <Tooltip title="Удалить">
+                        {doc.file_path && (
+                          <Typography variant="body2" sx={{ mb: 2 }}>
+                            <Button
+                              onClick={() => handleDownload(doc.file_path)}
+                              sx={{
+                                backgroundColor: '#ffc107',
+                                color: '#fff',
+                                '&:hover': { backgroundColor: '#e0a800' },
+                                borderRadius: '8px',
+                                minWidth: '40px',
+                                padding: '8px',
+                              }}
+                            >
+                              <Download fontSize="small" />
+                            </Button>
+                          </Typography>
+                        )}
+                        <Tooltip title="Удалить">
+                          <Button
+                            onClick={() => handleDelete(doc.id)}
+                            sx={{
+                              backgroundColor: '#d32f2f',
+                              color: '#fff',
+                              '&:hover': { backgroundColor: '#b71c1c' },
+                              borderRadius: '8px',
+                              minWidth: '40px',
+                              padding: '8px',
+                            }}
+                          >
+                            <Delete fontSize="small" />
+                          </Button>
+                        </Tooltip>
+                      </div>
+                    ) : (
+                      <Tooltip title="Загрузить">
                         <Button
-                          onClick={() => handleDelete(doc.id)}
+                          component="label"
                           sx={{
-                            backgroundColor: '#d32f2f',
+                            backgroundColor: '#2e7d32',
                             color: '#fff',
-                            '&:hover': { backgroundColor: '#b71c1c' },
+                            '&:hover': { backgroundColor: '#1b5e20' },
                             borderRadius: '8px',
                             minWidth: '40px',
                             padding: '8px',
                           }}
                         >
-                          <Delete fontSize="small" />
+                          <CloudUpload fontSize="small" />
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.doc,.docx"
+                            onChange={(e) => handleUpload(slotNumber, e.target.files[0], resumeType)}
+                          />
                         </Button>
                       </Tooltip>
-                    </div>
-                  ) : (
-                    <Tooltip title="Загрузить">
-                      <Button
-                        component="label"
-                        sx={{
-                          backgroundColor: '#2e7d32',
-                          color: '#fff',
-                          '&:hover': { backgroundColor: '#1b5e20' },
-                          borderRadius: '8px',
-                          minWidth: '40px',
-                          padding: '8px',
-                        }}
-                      >
-                        <CloudUpload fontSize="small" />
-                        <input
-                          type="file"
-                          hidden
-                          accept=".pdf,.doc,.docx"
-                          onChange={(e) => handleUpload(slotNumber, e.target.files[0])}
-                        />
-                      </Button>
-                    </Tooltip>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </>
+    );
+  };
+
+  return (
+    <div className="container mt-5">
+      <h1 className="mb-4">Документы</h1>
+      <p>Загрузите необходимые документы для завершения процесса найма или практики.</p>
+      {error && <div className="alert alert-danger">{error}</div>}
+      <Tabs value={activeTab} onChange={handleTabChange} aria-label="Документы по типу">
+        <Tab label="Трудоустройство" value="JOB" />
+        <Tab label="Практика" value="PRACTICE" />
+      </Tabs>
+      <div className="mt-4">
+        {activeTab === 'JOB' && renderDocumentTable(effectiveJobDocumentTypes, 'JOB')}
+        {activeTab === 'PRACTICE' && renderDocumentTable(practiceDocumentTypes, 'PRACTICE')}
+      </div>
       {selectedDoc && (
         <DocumentModal
           open={openModal}
