@@ -11,6 +11,7 @@ import HomePage from './components/HomePage';
 import ResumePage from './components/ResumePage';
 import ModeratorResumePage from './components/ModeratorResumePage';
 import InterviewPage from './components/InterviewPage';
+import ModeratorInterviewPage from './components/ModeratorInterviewPage';
 import DocumentsPage from './components/DocumentsPage';
 import NotificationsPage from './components/NotificationsPage';
 import FinalStatusPage from './components/FinalStatusPage';
@@ -82,6 +83,14 @@ const AppContent = () => {
             }
           />
           <Route
+              path="/interview/moderator"
+              element={
+                <ProtectedRoute>
+                  <ModeratorInterviewPage />
+                </ProtectedRoute>
+              }
+          />
+          <Route
             path="/documents"
             element={
               <ProtectedRoute>
@@ -142,4 +151,4 @@ function App() {
   );
 }
 
-export default App;
+export default App; 

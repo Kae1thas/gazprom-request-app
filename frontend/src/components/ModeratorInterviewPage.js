@@ -1,30 +1,27 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableHead, TableRow, Tabs, Tab, Box, Typography } from '@mui/material';
+import {
+  Table, TableBody, TableCell, TableHead, TableRow, Button, Tabs, Tab, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography
+} from '@mui/material';
 import InterviewModal from './InterviewModal';
 
-const practiceTypeDisplayMap = {
-  PRE_DIPLOMA: 'Преддипломная',
-  PRODUCTION: 'Производственная',
-  EDUCATIONAL: 'Учебная',
-  '': '-',
-  null: '-'
-};
-
-const InterviewPage = () => {
+const ModeratorInterviewPage = () => {
   const { user, loading } = useContext(AuthContext);
   const [interviews, setInterviews] = useState([]);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('JOB');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   useEffect(() => {
     if (loading) return;
 
-    if (!user) {
-      setError('Пожалуйста, войдите, чтобы просмотреть собеседования');
+    if (!user?.isStaff) {
+      setError('Доступ только для модераторов');
       return;
     }
 
@@ -36,7 +33,7 @@ const InterviewPage = () => {
 
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/interviews/my/', {
+        const response = await axios.get('http://localhost:8000/api/interviews/', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setInterviews(response.data);
@@ -57,20 +54,53 @@ const InterviewPage = () => {
     fetchData();
   }, [user, loading]);
 
-  const renderInterviewTable = (interviewType) => {
-    const interviewsToShow = interviewType === 'JOB'
+  const handleUpdateInterviews = (updatedInterviews) => {
+    setInterviews(updatedInterviews);
+  };
+
+  const filteredInterviews = useMemo(() => {
+    let result = activeTab === 'JOB'
       ? interviews.filter((interview) => interview.resume_type === 'JOB')
       : interviews.filter((interview) => interview.resume_type === 'PRACTICE');
+
+    if (searchQuery) {
+      result = result.filter((interview) =>
+        `${interview.candidate.user.last_name} ${interview.candidate.user.first_name}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      );
+    }
+
+    result.sort((a, b) => {
+      if (sortBy === 'id') {
+        return sortOrder === 'asc' ? a.id - b.id : b.id - a.id;
+      } else if (sortBy === 'name') {
+        const nameA = `${a.candidate.user.last_name} ${a.candidate.user.first_name}`.toLowerCase();
+        const nameB = `${b.candidate.user.last_name} ${b.candidate.user.first_name}`.toLowerCase();
+        return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortBy === 'date') {
+        const dateA = new Date(a.scheduled_at || '1970-01-01');
+        const dateB = new Date(b.scheduled_at || '1970-01-01');
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [interviews, searchQuery, sortBy, sortOrder, activeTab]);
+
+  const renderInterviewTable = (interviewType) => {
+    const interviewsToShow = filteredInterviews;
     const isPractice = interviewType === 'PRACTICE';
 
     return (
       <div className="card mb-4">
         <h2 className="card-header">
-          Ваши собеседования на {isPractice ? 'практику' : 'работу'}
+          Собеседования на {isPractice ? 'практику' : 'работу'}
         </h2>
         <div className="card-body">
           {interviewsToShow.length === 0 ? (
-            <p>У вас пока нет запланированных собеседований на {isPractice ? 'практику' : 'работу'}.</p>
+            <p>Собеседования на {isPractice ? 'практику' : 'работу'} отсутствуют.</p>
           ) : (
             <Table className="table table-striped">
               <TableHead>
@@ -99,7 +129,7 @@ const InterviewPage = () => {
                     </TableCell>
                     {isPractice && (
                       <TableCell>
-                        {interview.practice_type_display || practiceTypeDisplayMap[interview.practice_type] || '-'}
+                        {interview.practice_type_display || interview.practice_type || '-'}
                       </TableCell>
                     )}
                     <TableCell>
@@ -137,7 +167,9 @@ const InterviewPage = () => {
                       <InterviewModal
                         mode="view"
                         interview={interview}
-                        isModerator={false}
+                        interviews={interviews}
+                        setInterviews={handleUpdateInterviews}
+                        isModerator={true}
                       />
                     </TableCell>
                   </TableRow>
@@ -164,19 +196,70 @@ const InterviewPage = () => {
     return <Navigate to="/login" />;
   }
 
+  if (!user.isStaff) {
+    return (
+      <div className="container mt-5 alert alert-danger">
+        {error}
+      </div>
+    );
+  }
+
   const hasJobInterviews = interviews.some((interview) => interview.resume_type === 'JOB');
   const hasPracticeInterviews = interviews.some((interview) => interview.resume_type === 'PRACTICE');
 
   return (
-    <Box className="container mt-5">
+    <Box className="container mt-5 pl-64 pt-20">
       <Typography variant="h4" sx={{ textAlign: 'center', mb: 4 }}>
-        Собеседования
+        Управление собеседованиями
       </Typography>
       {error && (
         <div className="alert alert-danger" mb={2}>
           {error}
         </div>
       )}
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
+        <TextField
+          label="Поиск по имени кандидата"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ flex: 1, minWidth: 200 }}
+          size="small"
+        />
+        <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
+          <InputLabel id="sort-by-label">Сортировать по</InputLabel>
+          <Select
+            labelId="sort-by-label"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            label="Сортировать по"
+          >
+            <MenuItem value="id">ID собеседования</MenuItem>
+            <MenuItem value="name">Имя кандидата</MenuItem>
+            <MenuItem value="date">Дата собеседования</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
+          <InputLabel id="sort-order-label">Порядок</InputLabel>
+          <Select
+            labelId="sort-order-label"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            label="Порядок"
+          >
+            <MenuItem value="asc">По возрастанию</MenuItem>
+            <MenuItem value="desc">По убыванию</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      <InterviewModal
+        mode="create"
+        interviews={interviews}
+        setInterviews={handleUpdateInterviews}
+        isModerator={true}
+      />
 
       {hasJobInterviews || hasPracticeInterviews ? (
         <>
@@ -196,7 +279,7 @@ const InterviewPage = () => {
       ) : (
         <div className="card mb-4">
           <div className="card-body">
-            <p>У вас пока нет запланированных собеседований.</p>
+            <p>Собеседования отсутствуют.</p>
           </div>
         </div>
       )}
@@ -204,4 +287,4 @@ const InterviewPage = () => {
   );
 };
 
-export default InterviewPage;
+export default ModeratorInterviewPage;
