@@ -12,7 +12,7 @@ const Register = () => {
   const onSubmit = async (data) => {
     try {
       const response = await axios.post('http://localhost:8000/api/register/', data);
-      toast.success('Регистрация успешна! Пожалуйста, войдите.');
+      toast.success('Регистрация успешна! Пожалуйста, проверьте вашу почту для подтверждения.');
       setError('');
       navigate('/login');
     } catch (err) {

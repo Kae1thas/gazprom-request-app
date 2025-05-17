@@ -16,6 +16,8 @@ from .serializers import (
     DocumentSerializer, EmployeeSerializer, DocumentHistorySerializer
 )
 from rest_framework_simplejwt.tokens import RefreshToken
+from .utils import send_notification_email
+
 logger = logging.getLogger(__name__)
 
 class CandidateViewSet(viewsets.ModelViewSet):
@@ -49,6 +51,23 @@ class RegisterView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             Candidate.objects.create(user=user, has_successful_interview=False)
+            
+            Notification.objects.create(
+                user=user,
+                message=f"Добро пожаловать, {user.first_name}! Ваша регистрация прошла успешно.",
+                type='REGISTRATION',
+                sent_to_email=True
+            )
+            
+            send_notification_email(
+                subject='Добро пожаловать на платформу!',
+                template_name='emails/registration.html',
+                context={
+                    'user': user,
+                },
+                recipient_list=[user.email]
+            )
+            
             refresh = RefreshToken.for_user(user)
             return Response({
                 'user': UserSerializer(user).data,
@@ -127,8 +146,24 @@ class ResumeStatusUpdateView(APIView):
                 message += f'\nКомментарий: {comment}'
             Notification.objects.create(
                 user=resume.candidate.user,
-                message=message
+                message=message,
+                type='RESUME_STATUS',
+                sent_to_email=True
             )
+            
+            send_notification_email(
+                subject='Изменение статуса резюме',
+                template_name='emails/resume_status.html',
+                context={
+                    'user': resume.candidate.user,
+                    'resume_id': resume.id,
+                    'resume_type': resume.get_resume_type_display(),
+                    'status': status_display,
+                    'comment': comment or 'Отсутствует'
+                },
+                recipient_list=[resume.candidate.user.email]
+            )
+            
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -230,7 +265,21 @@ class InterviewViewSet(viewsets.ModelViewSet):
             interview = serializer.save()
             Notification.objects.create(
                 user=interview.candidate.user,
-                message=f'Назначено собеседование #{interview.id} ({interview.get_resume_type_display()}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}'
+                message=f'Назначено собеседование #{interview.id} ({interview.get_resume_type_display()}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}',
+                type='INTERVIEW',
+                sent_to_email=True
+            )
+            send_notification_email(
+                subject='Назначено собеседование',
+                template_name='emails/interview_notification.html',
+                context={
+                    'user': interview.candidate.user,
+                    'interview_id': interview.id,
+                    'resume_type': interview.get_resume_type_display(),
+                    'scheduled_at': interview.scheduled_at.strftime("%d.%m.%Y %H:%M"),
+                    'employee_name': f"{interview.employee.user.last_name} {interview.employee.user.first_name}"
+                },
+                recipient_list=[interview.candidate.user.email]
             )
             return Response(InterviewSerializer(interview).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -285,7 +334,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 )
                 Notification.objects.create(
                     user=interview.candidate.user,
-                    message=f'Ваш документ #{document.id} ({document.document_type}) успешно загружен.'
+                    message=f'Ваш документ #{document.id} ({document.document_type}) успешно загружен.',
+                    type='DOCUMENT',
+                    sent_to_email=True
+                )
+                send_notification_email(
+                    subject='Документ загружен',
+                    template_name='emails/document_notification.html',
+                    context={
+                        'user': interview.candidate.user,
+                        'document_id': document.id,
+                        'document_type': document.document_type
+                    },
+                    recipient_list=[interview.candidate.user.email]
                 )
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except IntegrityError as e:
@@ -306,7 +367,20 @@ class DocumentViewSet(viewsets.ModelViewSet):
         document.delete()
         Notification.objects.create(
             user=document.interview.candidate.user,
-            message=f'Ваш документ #{pk} ({document.document_type}) удалён.'
+            message=f'Ваш документ #{pk} ({document.document_type}) удалён.',
+            type='DOCUMENT',
+            sent_to_email=True
+        )
+        send_notification_email(
+            subject='Документ удален',
+            template_name='emails/document_notification.html',
+            context={
+                'user': document.interview.candidate.user,
+                'document_id': pk,
+                'document_type': document.document_type,
+                'status': 'Удален'
+            },
+            recipient_list=[document.interview.candidate.user.email]
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -327,7 +401,21 @@ class DocumentViewSet(viewsets.ModelViewSet):
         )
         Notification.objects.create(
             user=document.interview.candidate.user,
-            message=f'Статус вашего документа #{document.id} ({document.document_type}) изменён на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}'
+            message=f'Статус вашего документа #{document.id} ({document.document_type}) изменен на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}',
+            type='DOCUMENT',
+            sent_to_email=True
+        )
+        send_notification_email(
+            subject='Изменение статуса документа',
+            template_name='emails/document_notification.html',
+            context={
+                'user': document.interview.candidate.user,
+                'document_id': document.id,
+                'document_type': document.document_type,
+                'status': document.get_status_display(),
+                'comment': comment or 'Отсутствует'
+            },
+            recipient_list=[document.interview.candidate.user.email]
         )
         return Response(DocumentSerializer(document).data)
 
@@ -347,7 +435,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
             message = f'Необходимо загрузить следующие документы: {", ".join(missing_types)}.'
             Notification.objects.create(
                 user=interview.candidate.user,
-                message=message
+                message=message,
+                type='DOCUMENT',
+                sent_to_email=True
+            )
+            send_notification_email(
+                subject='Необходимы дополнительные документы',
+                template_name='emails/document_notification.html',
+                context={
+                    'user': interview.candidate.user,
+                    'message': message
+                },
+                recipient_list=[interview.candidate.user.email]
             )
             return Response({'message': 'Уведомление отправлено'}, status=status.HTTP_200_OK)
         except Interview.DoesNotExist:
@@ -364,9 +463,23 @@ class DocumentViewSet(viewsets.ModelViewSet):
             interview.result = 'FAILURE'
             interview.save()
             Document.objects.filter(interview=interview).delete()
+            message = f'Ваша кандидатура ({interview.get_resume_type_display()}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
             Notification.objects.create(
                 user=candidate.user,
-                message=f'Ваша кандидатура ({interview.get_resume_type_display()}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
+                message=message,
+                type='HIRE',
+                sent_to_email=True
+            )
+            send_notification_email(
+                subject='Статус вашей заявки',
+                template_name='emails/hire_status.html',
+                context={
+                    'user': candidate.user,
+                    'application_type': interview.get_resume_type_display().lower(),
+                    'status': 'Отклонено',
+                    'message': 'Для повторной попытки необходимо пройти собеседование заново.'
+                },
+                recipient_list=[candidate.user.email]
             )
             return Response({'message': 'Кандидат отклонен'}, status=status.HTTP_200_OK)
         except Interview.DoesNotExist:
@@ -382,7 +495,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
             resume_type = interview.resume_type
             is_male = candidate.user.gender == 'MALE'
 
-            # Определяем обязательные документы в зависимости от типа заявки
             if resume_type == 'JOB':
                 required_types = [
                     'Паспорт',
@@ -396,7 +508,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 ]
                 if is_male:
                     required_types.append('Приписное/Военник')
-            else:  # PRACTICE
+            else:
                 required_types = [
                     'Паспорт',
                     'Аттестат/Диплом',
@@ -424,15 +536,28 @@ class DocumentViewSet(viewsets.ModelViewSet):
                         hire_date=timezone.now().date()
                     )
                     message = 'Поздравляем! Вы приняты на работу.'
-            else:  # PRACTICE
-                # Здесь можно добавить логику для записи данных о практике, если требуется
+                    email_status = 'Приняты на работу'
+            else:
                 message = f'Поздравляем! Вы приняты на {interview.get_practice_type_display()} практику.'
+                email_status = f'Приняты на {interview.get_practice_type_display()} практику'
 
             candidate.has_successful_interview = False
             candidate.save()
             Notification.objects.create(
                 user=candidate.user,
-                message=message
+                message=message,
+                type='HIRE',
+                sent_to_email=True
+            )
+            send_notification_email(
+                subject='Поздравляем с успешным завершением!',
+                template_name='emails/hire_status.html',
+                context={
+                    'user': candidate.user,
+                    'application_type': interview.get_resume_type_display().lower(),
+                    'status': email_status,
+                },
+                recipient_list=[candidate.user.email]
             )
             return Response({'message': f'Кандидат успешно принят на {resume_type.lower()}'}, status=status.HTTP_200_OK)
         except Interview.DoesNotExist:

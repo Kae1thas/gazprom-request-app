@@ -5,7 +5,6 @@ from django.utils.translation import gettext_lazy as _
 import uuid
 
 def candidate_document_path(instance, filename):
-    # Путь: media/candidate_<candidate_id>/filename
     candidate_id = instance.interview.candidate.id
     return f'candidate_{candidate_id}/{filename}'
 
@@ -28,6 +27,14 @@ class CustomUserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError(_('Суперпользователь должен иметь is_superuser=True'))
         return self.create_user(email, password, **extra_fields)
+
+class NotificationTypeChoices(models.TextChoices):
+    REGISTRATION = 'REGISTRATION', _('Регистрация')
+    RESUME_STATUS = 'RESUME_STATUS', _('Статус резюме')
+    INTERVIEW = 'INTERVIEW', _('Собеседование')
+    DOCUMENT = 'DOCUMENT', _('Документ')
+    HIRE = 'HIRE', _('Прием')
+    OTHER = 'OTHER', _('Другое')
 
 class ResumeTypeChoices(models.TextChoices):
     JOB = 'JOB', _('Работа')
@@ -230,6 +237,8 @@ class Notification(models.Model):
     message = models.TextField(_('Сообщение'))
     created_at = models.DateTimeField(_('Дата создания'), auto_now_add=True)
     is_read = models.BooleanField(_('Прочитано'), default=False)
+    sent_to_email = models.BooleanField(_('Отправлено на email'), default=False)
+    type = models.CharField(_('Тип'), max_length=20, choices=NotificationTypeChoices.choices, default=NotificationTypeChoices.OTHER)
 
     class Meta:
         verbose_name = 'Уведомление'

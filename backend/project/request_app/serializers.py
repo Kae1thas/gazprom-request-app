@@ -51,7 +51,7 @@ class ResumeSerializer(serializers.ModelSerializer):
     candidate = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
     education_display = serializers.SerializerMethodField()
-    practice_type_display = serializers.SerializerMethodField()  # Добавлено
+    practice_type_display = serializers.SerializerMethodField()
     resume_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['JOB', 'PRACTICE']], required=True)
     practice_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['PRE_DIPLOMA', 'PRODUCTION', 'EDUCATIONAL']], required=False, allow_null=True)
 
@@ -261,4 +261,4 @@ class DocumentSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'user', 'message', 'is_read', 'created_at']
+        fields = ['id', 'user', 'message', 'is_read', 'created_at', 'sent_to_email']

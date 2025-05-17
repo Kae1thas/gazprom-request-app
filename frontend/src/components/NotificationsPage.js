@@ -2,13 +2,15 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
-import { FaCheckCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaFilter } from 'react-icons/fa';
+import { Button, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 
 const NotificationsPage = () => {
   const { user } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filterType, setFilterType] = useState('all');
 
   useEffect(() => {
     if (!user) {
@@ -72,6 +74,10 @@ const NotificationsPage = () => {
     }
   };
 
+  const filteredNotifications = filterType === 'all'
+    ? notifications
+    : notifications.filter((n) => n.type === filterType);
+
   if (loading) return <div className="container mt-5">Загрузка...</div>;
   if (error) return <div className="container mt-5 alert alert-danger">{error}</div>;
 
@@ -79,55 +85,89 @@ const NotificationsPage = () => {
     <div className="container mt-5">
       <h1 className="mb-4">Уведомления</h1>
       <div className="card mb-4">
-        <h2 className="card-header">Ваши уведомления</h2>
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <h2 className="mb-0">Ваши уведомления</h2>
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel id="filter-type-label">Фильтр по типу</InputLabel>
+            <Select
+              labelId="filter-type-label"
+              value={filterType}
+              label="Фильтр по типу"
+              onChange={(e) => setFilterType(e.target.value)}
+            >
+              <MenuItem value="all">Все</MenuItem>
+              <MenuItem value="REGISTRATION">Регистрация</MenuItem>
+              <MenuItem value="RESUME_STATUS">Статус резюме</MenuItem>
+              <MenuItem value="INTERVIEW">Собеседование</MenuItem>
+              <MenuItem value="DOCUMENT">Документ</MenuItem>
+              <MenuItem value="HIRE">Прием</MenuItem>
+            </Select>
+          </FormControl>
+        </div>
         <div className="card-body">
-          {notifications.length === 0 ? (
+          {filteredNotifications.length === 0 ? (
             <p>Уведомления отсутствуют.</p>
           ) : (
             <>
-              <button
-                className="btn btn-primary mb-3"
+              <Button
+                variant="contained"
+                color="primary"
                 onClick={markAllAsRead}
-                disabled={notifications.every((n) => n.is_read)}
+                disabled={filteredNotifications.every((n) => n.is_read)}
+                sx={{ mb: 2 }}
               >
                 Пометить все как прочитанные
-              </button>
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Сообщение</th>
-                    <th>Дата</th>
-                    <th>Статус</th>
-                    <th>Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {notifications.map((notification) => (
-                    <tr key={notification.id}>
-                      <td style={{ whiteSpace: 'pre-wrap' }}>{notification.message}</td>
-                      <td>{new Date(notification.created_at).toLocaleString()}</td>
-                      <td>
-                        <span
-                          className={`badge ${notification.is_read ? 'bg-success' : 'bg-warning'}`}
-                        >
-                          {notification.is_read ? 'Прочитано' : 'Непрочитано'}
-                        </span>
-                      </td>
-                      <td>
-                        {!notification.is_read && (
-                          <button
-                            className="btn btn-square btn-primary"
-                            onClick={() => markAsRead(notification.id)}
-                            title="Пометить как прочитанное"
+              </Button>
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Тип</TableCell>
+                      <TableCell>Сообщение</TableCell>
+                      <TableCell>Дата</TableCell>
+                      <TableCell>Статус</TableCell>
+                      <TableCell>Действия</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredNotifications.map((notification) => (
+                      <TableRow key={notification.id}>
+                        <TableCell>
+                          {{
+                            'REGISTRATION': 'Регистрация',
+                            'RESUME_STATUS': 'Статус резюме',
+                            'INTERVIEW': 'Собеседование',
+                            'DOCUMENT': 'Документ',
+                            'HIRE': 'Прием'
+                          }[notification.type] || 'Другое'}
+                        </TableCell>
+                        <TableCell style={{ whiteSpace: 'pre-wrap' }}>{notification.message}</TableCell>
+                        <TableCell>{new Date(notification.created_at).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`badge ${notification.is_read ? 'bg-success' : 'bg-warning'}`}
                           >
-                            <FaCheckCircle />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            {notification.is_read ? 'Прочитано' : 'Непрочитано'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {!notification.is_read && (
+                            <Button
+                              variant="outlined"
+                              color="primary"
+                              onClick={() => markAsRead(notification.id)}
+                              startIcon={<FaCheckCircle />}
+                              title="Пометить как прочитанное"
+                            >
+                              Прочитать
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </>
           )}
         </div>

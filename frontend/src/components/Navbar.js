@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 import axios from 'axios';
 import { FaBell } from 'react-icons/fa';
+import { Dropdown } from 'react-bootstrap';
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
@@ -63,45 +64,53 @@ const Navbar = () => {
             <>
               <span className="account-info me-3">{user.fullName}</span>
               {!user.isStaff && (
-                <div className="position-relative">
-                  <button
+                <Dropdown show={showNotifications} onToggle={toggleNotifications}>
+                  <Dropdown.Toggle
+                    as="button"
                     className="btn btn-link text-white"
-                    onClick={toggleNotifications}
                     title="Уведомления"
                   >
                     <FaBell />
                     {unreadCount > 0 && (
-                      <span className="notification-badge">{unreadCount}</span>
+                      <span className="notification-badge bg-danger rounded-circle position-absolute top-0 start-100 translate-middle">
+                        {unreadCount}
+                      </span>
                     )}
-                  </button>
-                  {showNotifications && (
-                    <div className="dropdown-menu-notifications show">
-                      {notifications.length === 0 ? (
-                        <p className="p-3">Нет уведомлений</p>
-                      ) : (
-                        notifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={`notification-item ${
-                              !notification.is_read ? 'unread' : ''
-                            }`}
-                            onClick={() =>
-                              !notification.is_read && markAsRead(notification.id)
-                            }
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <div style={{ whiteSpace: 'pre-wrap' }}>
-                              {notification.message}
-                            </div>
-                            <small>
-                              {new Date(notification.created_at).toLocaleString()}
-                            </small>
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu align="end" className="dropdown-menu-notifications">
+                    {notifications.length === 0 ? (
+                      <Dropdown.Item disabled>Нет уведомлений</Dropdown.Item>
+                    ) : (
+                      notifications.slice(0, 5).map((notification) => (
+                        <Dropdown.Item
+                          key={notification.id}
+                          onClick={() => !notification.is_read && markAsRead(notification.id)}
+                          className={`notification-item ${!notification.is_read ? 'unread bg-light' : ''}`}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="d-flex justify-content-between">
+                            <strong>
+                              {{
+                                'REGISTRATION': 'Регистрация',
+                                'RESUME_STATUS': 'Статус резюме',
+                                'INTERVIEW': 'Собеседование',
+                                'DOCUMENT': 'Документ',
+                                'HIRE': 'Прием'
+                              }[notification.type] || 'Другое'}
+                            </strong>
+                            <small>{new Date(notification.created_at).toLocaleTimeString()}</small>
                           </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                          <div style={{ whiteSpace: 'pre-wrap' }}>{notification.message}</div>
+                        </Dropdown.Item>
+                      ))
+                    )}
+                    {notifications.length > 5 && (
+                      <Dropdown.Item as={Link} to="/notifications">
+                        Показать все уведомления
+                      </Dropdown.Item>
+                    )}
+                  </Dropdown.Menu>
+                </Dropdown>
               )}
               <button
                 className="btn btn-link text-white ms-3"
