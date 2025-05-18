@@ -72,6 +72,15 @@ const Navbar = () => {
 
   const toggleNotifications = () => setShowNotifications(!showNotifications);
 
+  // Формируем ФИО для отображения
+  const getFullName = (user) => {
+    if (!user) return '';
+    const { lastName, firstName, patronymic } = user;
+    return patronymic
+      ? `${lastName} ${firstName} ${patronymic}`
+      : `${lastName} ${firstName}`.trim();
+  };
+
   return (
     <nav className={`navbar navbar-expand-lg navbar-dark ${!user ? 'no-sidebar' : ''}`}>
       <div className="container-fluid">
@@ -81,7 +90,7 @@ const Navbar = () => {
         <div className="ms-auto d-flex align-items-center">
           {user ? (
             <>
-              <span className="account-info me-3">{user.fullName}</span>
+              <span className="account-info me-3">{getFullName(user)}</span>
               {!user.isStaff && (
                 <Dropdown show={showNotifications} onToggle={toggleNotifications}>
                   <Dropdown.Toggle

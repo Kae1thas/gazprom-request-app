@@ -29,7 +29,9 @@ export const AuthProvider = ({ children }) => {
       const userData = response.data.user;
       const newUser = {
         email: userData.email,
-        fullName: `${userData.last_name} ${userData.first_name} ${userData.patronymic}`.trim() || userData.email,
+        firstName: userData.first_name || '',
+        lastName: userData.last_name || '',
+        patronymic: userData.patronymic || '',
         isStaff: response.data.is_staff,
         isSuperuser: response.data.is_superuser,
         candidate: response.data.candidate,
@@ -84,7 +86,9 @@ export const AuthProvider = ({ children }) => {
       const userData = userResponse.data.user;
       setUser({
         email: userData.email,
-        fullName: `${userData.last_name} ${userData.first_name} ${userData.patronymic}`.trim() || userData.email,
+        firstName: userData.first_name || '',
+        lastName: userData.last_name || '',
+        patronymic: userData.patronymic || '',
         isStaff: userResponse.data.is_staff,
         isSuperuser: userResponse.data.is_superuser,
         candidate: userResponse.data.candidate,

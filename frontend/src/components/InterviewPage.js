@@ -173,9 +173,8 @@ const InterviewPage = () => {
 
   return (
     <Box className="container mt-5">
-      <Typography variant="h4" sx={{ textAlign: 'center', mb: 4 }}>
-        Собеседования
-      </Typography>
+    <h1 className="mb-4">Мои собеседования</h1>
+    <p>Просматривайте запланированные и прошедшие собеседования для эффективного контроля расписания.</p>
       {error && (
         <div className="alert alert-danger" mb={2}>
           {error}

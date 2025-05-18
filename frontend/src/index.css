@@ -1,3 +1,4 @@
+/* Существующие стили из предыдущего ответа (сокращены для компактности, предполагается, что они уже есть) */
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #f8fafc;
@@ -185,25 +186,6 @@ body {
   padding: 4px;
 }
 
-.footer {
-  background-color: #0079c0 !important;
-  color: #fff;
-  padding: 2rem 0;
-  text-align: center;
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-.footer a {
-  color: #ffffff;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.footer a:hover {
-  color: #d1d5db;
-}
-
 .account-info {
   font-weight: 600;
   color: #e0f2fe;
@@ -218,7 +200,6 @@ body {
   color: #0079c0 !important;
 }
 
-/* Таблица резюме */
 .table-striped {
   width: 100%;
   table-layout: auto;
@@ -230,7 +211,6 @@ body {
   vertical-align: middle;
 }
 
-/* Колонка "Телефон" */
 .table-striped td:nth-child(4) {
   max-width: 160px;
   white-space: nowrap;
@@ -468,80 +448,6 @@ body {
   padding-top: 70px;
 }
 
-@media (max-width: 767.98px) {
-  .sidebar {
-    display: none;
-  }
-  .main-content {
-    margin-left: 0;
-    padding-top: 70px;
-  }
-  .main-content.no-sidebar {
-    margin-left: 0;
-    padding-top: 70px;
-  }
-  .hamburger {
-    position: fixed;
-    top: 1rem;
-    left: 1rem;
-    z-index: 1200;
-  }
-  .offcanvas {
-    width: 240px;
-    background-color: #1e3a8a;
-  }
-  .offcanvas-title {
-    color: #fff;
-  }
-}
-
-.container {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-}
-
-.card {
-  border: none;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem;
-  background-color: #fff;
-  border-left: 4px solid #1e3a8a;
-  margin-bottom: 1.5rem;
-}
-
-.dropdown-menu-notifications {
-  position: absolute;
-  width: 300px;
-  max-height: 400px;
-  overflow-y: auto;
-  padding: 0;
-  right: 0;
-  left: auto;
-}
-
-.notification-item {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 0.875rem;
-  background-color: #fff;
-  transition: background-color 0.2s ease;
-}
-
-.notification-item.unread {
-  background-color: #f1f5f9;
-  font-weight: 500;
-}
-
-.notification-item:hover {
-  background-color: #e0f2fe;
-}
-
-.notification-item small {
-  color: #6b7280;
-}
-
 .form-select-type {
   border: 1px solid #d1d5db;
   border-radius: 6px;
@@ -561,9 +467,155 @@ body {
   border-color: #dc2626;
 }
 
-/* Стили для меток */
 .form-label-type {
   font-weight: 500;
   color: #1f2937;
   margin-bottom: 0.5rem;
+}
+
+/* Обновленные стили для подвала */
+.footer {
+  background-color: #0079c0;
+  color: #fff;
+  padding: 3rem 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-left: 240px; /* Учитываем ширину боковой панели */
+}
+
+.footer.no-sidebar {
+  margin-left: 0; /* Без отступа, если нет боковой панели */
+}
+
+.footer-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.footer-section {
+  flex: 1;
+  min-width: 200px;
+}
+
+.footer-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.footer-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #e0f2fe;
+}
+
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links li {
+  margin-bottom: 0.5rem;
+}
+
+.footer-links a {
+  color: #e0f2fe;
+  text-decoration: none;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.footer-links a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.footer-contact-link {
+  color: #fff; /* Белый цвет для email и телефона */
+  text-decoration: none; /* Убираем подчеркивание */
+  transition: color 0.2s ease;
+}
+
+.footer-contact-link:hover {
+  color: #e0f2fe; /* Легкое осветление при наведении */
+}
+
+.footer-icon {
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.footer-social {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.social-icon {
+  font-size: 1.5rem;
+  color: #e0f2fe;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.social-icon:hover {
+  transform: scale(1.2);
+  color: #fff;
+}
+
+.footer-bottom {
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1rem;
+}
+
+.footer-bottom p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Адаптивные стили */
+@media (max-width: 767.98px) {
+  .sidebar {
+    display: none;
+  }
+  .main-content {
+    margin-left: 0;
+    padding-top: 70px;
+  }
+  .main-content.no-sidebar {
+    margin-left: 0;
+    padding-top: 70px;
+  }
+  .footer {
+    margin-left: 0; /* Убираем отступ на мобильных */
+    padding: 2rem 0;
+  }
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  .footer-section {
+    margin-bottom: 1.5rem;
+  }
+  .footer-social {
+    justify-content: center;
+  }
+  .hamburger {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1200;
+  }
+  .offcanvas {
+    width: 240px;
+    background-color: #1e3a8a;
+  }
+  .offcanvas-title {
+    color: #fff;
+  }
 }

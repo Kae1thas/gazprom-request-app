@@ -7,7 +7,9 @@ import './index.css';
 import { AuthProvider, AuthContext } from './components/AuthContext';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import Footer from './components/Footer';
 import HomePage from './components/HomePage';
+import ModeratorHomePage from './components/ModeratorHomePage';
 import ResumePage from './components/ResumePage';
 import ModeratorResumePage from './components/ModeratorResumePage';
 import InterviewPage from './components/InterviewPage';
@@ -18,6 +20,8 @@ import FinalStatusPage from './components/FinalStatusPage';
 import ModeratorDocumentsPage from './components/ModeratorDocumentsPage';
 import Login from './components/Login';
 import Register from './components/Register';
+import FooterAbout from './components/FooterAbout';
+import FooterContact from './components/FooterContact';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading, interviewLoading } = useContext(AuthContext);
@@ -43,7 +47,7 @@ const AppContent = () => {
   const { user } = useContext(AuthContext);
 
   return (
-    <div className="d-flex min-vh-100">
+    <div className="d-flex flex-column min-vh-100">
       <Sidebar />
       <div className={`flex-grow-1 main-content ${!user ? 'no-sidebar' : ''}`}>
         <Navbar />
@@ -54,7 +58,7 @@ const AppContent = () => {
             path="/home"
             element={
               <ProtectedRoute>
-                <HomePage />
+                {user && user.isStaff ? <ModeratorHomePage /> : <HomePage />}
               </ProtectedRoute>
             }
           />
@@ -83,12 +87,12 @@ const AppContent = () => {
             }
           />
           <Route
-              path="/interview/moderator"
-              element={
-                <ProtectedRoute>
-                  <ModeratorInterviewPage />
-                </ProtectedRoute>
-              }
+            path="/interview/moderator"
+            element={
+              <ProtectedRoute>
+                <ModeratorInterviewPage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/documents"
@@ -123,6 +127,8 @@ const AppContent = () => {
             }
           />
           <Route path="/" element={<Navigate to="/home" />} />
+          <Route path="/about" element={<FooterAbout />} />
+          <Route path="/contact" element={<FooterContact />} />
         </Routes>
         <ToastContainer
           position="top-right"
@@ -137,6 +143,7 @@ const AppContent = () => {
           theme="colored"
         />
       </div>
+      <Footer className={`footer ${!user ? 'no-sidebar' : ''}`} />
     </div>
   );
 };
@@ -151,4 +158,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;

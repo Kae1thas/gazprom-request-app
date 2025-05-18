@@ -225,7 +225,8 @@ const ResumePage = () => {
 
   return (
     <Box className="container mt-5">
-      <Typography variant="h4" className="text-center mb-4">Личный кабинет</Typography>
+      <h1 className="mb-4">Мои резюме</h1>
+      <p>Загружайте и управляйте резюме для эффективного завершения процесса подбора персонала или участия в программах стажировки.</p>
       {error && <div className="alert alert-danger">{error}</div>}
 
       {(hasJobResumes || hasPracticeResumes) && (
