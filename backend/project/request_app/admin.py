@@ -38,15 +38,15 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 @admin.register(Resume)
 class ResumeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'candidate', 'resume_type', 'practice_type', 'education', 'phone_number', 'status', 'created_at')
-    list_filter = ('status', 'education', 'created_at', 'resume_type', 'practice_type')
+    list_display = ('id', 'candidate', 'resume_type', 'practice_type', 'job_type', 'education', 'phone_number', 'status', 'created_at')
+    list_filter = ('status', 'education', 'created_at', 'resume_type', 'practice_type', 'job_type')
     search_fields = ('candidate__user__username', 'candidate__user__first_name', 'candidate__user__last_name', 'candidate__user__patronymic', 'content', 'phone_number')
     readonly_fields = ('created_at',)
 
 @admin.register(Interview)
 class InterviewAdmin(admin.ModelAdmin):
-    list_display = ('id', 'candidate', 'employee', 'resume_type', 'practice_type', 'scheduled_at', 'status', 'result')
-    list_filter = ('status', 'result', 'scheduled_at', 'resume_type', 'practice_type')
+    list_display = ('id', 'candidate', 'employee', 'resume_type', 'practice_type', 'job_type', 'scheduled_at', 'status', 'result')
+    list_filter = ('status', 'result', 'scheduled_at', 'resume_type', 'practice_type', 'job_type')
     search_fields = ('candidate__user__username', 'candidate__user__first_name', 'candidate__user__last_name', 'employee__user__username')
 
 @admin.register(Document)

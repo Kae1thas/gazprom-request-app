@@ -25,6 +25,14 @@ const ModeratorResumePage = () => {
     '': 0
   };
 
+  const jobTypeOrder = {
+    'PROGRAMMER': 1,
+    'METHODOLOGIST': 2,
+    'SPECIALIST': 3,
+    '': 0,
+    null: 0
+  };
+
   useEffect(() => {
     if (loading) return;
 
@@ -89,6 +97,10 @@ const ModeratorResumePage = () => {
         const dateA = new Date(a.created_at || '1970-01-01');
         const dateB = new Date(b.created_at || '1970-01-01');
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      } else if (sortBy === 'job_type' && activeTab === 'JOB') {
+        const jobA = jobTypeOrder[a.job_type || ''] || 0;
+        const jobB = jobTypeOrder[b.job_type || ''] || 0;
+        return sortOrder === 'asc' ? jobA - jobB : jobB - jobA;
       }
       return 0;
     });
@@ -132,7 +144,11 @@ const ModeratorResumePage = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Кандидат</TableCell>
-                  {isPractice && <TableCell>Тип практики</TableCell>}
+                  {isPractice ? (
+                    <TableCell>Тип практики</TableCell>
+                  ) : (
+                    <TableCell>Тип работы</TableCell>
+                  )}
                   <TableCell>Содержание</TableCell>
                   <TableCell>Образование</TableCell>
                   <TableCell>Телефон</TableCell>
@@ -151,7 +167,11 @@ const ModeratorResumePage = () => {
                           }`.trim()
                         : 'Кандидат не указан'}
                     </TableCell>
-                    {isPractice && <TableCell>{resume.practice_type_display || '-'}</TableCell>}
+                    <TableCell>
+                      {isPractice
+                        ? resume.practice_type_display || '-'
+                        : resume.job_type_display || '-'}
+                    </TableCell>
                     <TableCell>{resume.content.substring(0, 50)}...</TableCell>
                     <TableCell>{resume.education_display || 'Не указано'}</TableCell>
                     <TableCell>{resume.phone_number || 'Не указан'}</TableCell>
@@ -200,6 +220,7 @@ const ModeratorResumePage = () => {
             <MenuItem value="id">ID резюме</MenuItem>
             <MenuItem value="education">Образование</MenuItem>
             <MenuItem value="date">Дата создания</MenuItem>
+            {activeTab === 'JOB' && <MenuItem value="job_type">Тип работы</MenuItem>}
           </Select>
         </FormControl>
         <FormControl variant="outlined" size="small" sx={{ width: 200 }}>

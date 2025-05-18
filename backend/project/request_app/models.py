@@ -90,6 +90,11 @@ class GenderChoices(models.TextChoices):
     MALE = 'MALE', _('Мужской')
     FEMALE = 'FEMALE', _('Женский')
 
+class JobTypeChoices(models.TextChoices):
+    PROGRAMMER = 'PROGRAMMER', _('Инженер-программист')
+    METHODOLOGIST = 'METHODOLOGIST', _('Методолог')
+    SPECIALIST = 'SPECIALIST', _('Специалист')
+
 class User(AbstractUser):
     email = models.EmailField(_('Электронная почта'), unique=True, blank=False)
     last_name = models.CharField(_('Фамилия'), max_length=150, blank=True)
@@ -152,6 +157,7 @@ class Resume(models.Model):
     comment = models.TextField(_('Комментарий'), max_length=500, blank=True, default='')
     resume_type = models.CharField(_('Тип заявки'), max_length=20, choices=ResumeTypeChoices.choices, default=ResumeTypeChoices.JOB)
     practice_type = models.CharField(_('Тип практики'), max_length=20, choices=PracticeTypeChoices.choices, blank=True, null=True)
+    job_type = models.CharField(_('Тип работы'), max_length=20, choices=JobTypeChoices.choices, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Резюме'
@@ -169,6 +175,7 @@ class Interview(models.Model):
     comment = models.TextField(blank=True)
     resume_type = models.CharField(_('Тип заявки'), max_length=20, choices=ResumeTypeChoices.choices, default=ResumeTypeChoices.JOB)
     practice_type = models.CharField(_('Тип практики'), max_length=20, choices=PracticeTypeChoices.choices, blank=True, null=True)
+    job_type = models.CharField(_('Тип работы'), max_length=20, choices=JobTypeChoices.choices, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Собеседование'

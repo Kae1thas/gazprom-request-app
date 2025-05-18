@@ -17,6 +17,7 @@ from .serializers import (
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from .utils import send_notification_email
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,6 @@ class ResumeCreateView(APIView):
         if serializer.is_valid():
             try:
                 resume = serializer.save(candidate=candidate)
-                # Отправка уведомления о создании резюме
                 Notification.objects.create(
                     user=resume.candidate.user,
                     message=f'Ваше резюме #{resume.id} ({resume.get_resume_type_display()}) успешно отправлено.',
@@ -262,7 +262,6 @@ class InterviewViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        # Отправка уведомления о результате собеседования
         result_display = {
             'SUCCESS': 'Успешно',
             'FAILURE': 'Неуспешно',
@@ -274,13 +273,15 @@ class InterviewViewSet(viewsets.ModelViewSet):
             'CANCELLED': 'Отменено'
         }.get(instance.status, instance.status)
         if instance.status == 'COMPLETED':
-            message = f'Собеседование #{instance.id} ({instance.get_resume_type_display()}) завершено. Результат: {result_display}.'
+            job_type_display = instance.get_job_type_display() if instance.resume_type == 'JOB' else ''
+            message = f'Собеседование #{instance.id} ({instance.get_resume_type_display()}{" - " + job_type_display if job_type_display else ""}) завершено. Результат: {result_display}.'
             email_template = 'emails/interview_result_success.html' if instance.result == 'SUCCESS' else 'emails/interview_result_failure.html'
             email_subject = 'Результат вашего собеседования'
             email_context = {
                 'user': instance.candidate.user,
                 'interview_id': instance.id,
                 'resume_type': instance.get_resume_type_display(),
+                'job_type': job_type_display,
                 'result': result_display,
                 'comment': instance.comment or 'Отсутствует'
             }
@@ -319,9 +320,10 @@ class InterviewViewSet(viewsets.ModelViewSet):
         serializer = InterviewCreateSerializer(data=request.data)
         if serializer.is_valid():
             interview = serializer.save()
+            job_type_display = interview.get_job_type_display() if interview.resume_type == 'JOB' else ''
             Notification.objects.create(
                 user=interview.candidate.user,
-                message=f'Назначено собеседование #{interview.id} ({interview.get_resume_type_display()}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}',
+                message=f'Назначено собеседование #{interview.id} ({interview.get_resume_type_display()}{" - " + job_type_display if job_type_display else ""}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}',
                 type='INTERVIEW',
                 sent_to_email=True
             )
@@ -332,6 +334,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
                     'user': interview.candidate.user,
                     'interview_id': interview.id,
                     'resume_type': interview.get_resume_type_display(),
+                    'job_type': job_type_display,
                     'scheduled_at': interview.scheduled_at.strftime("%d.%m.%Y %H:%M"),
                     'employee_name': f"{interview.employee.user.last_name} {interview.employee.user.first_name}"
                 },
@@ -372,11 +375,22 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def create(self, request):
         try:
             candidate = Candidate.objects.get(user=request.user)
-            interview = Interview.objects.filter(candidate=candidate, result='SUCCESS').first()
-            logger.info(f"DocumentViewSet.create: Candidate {candidate.id}, has_successful_interview={candidate.has_successful_interview}, found interview={interview.id if interview else None}")
+            resume_type = request.data.get('resume_type')
+            if not resume_type:
+                return Response({'error': 'Не указан тип заявки (resume_type)'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            interview = Interview.objects.filter(
+                candidate=candidate, 
+                result='SUCCESS', 
+                resume_type=resume_type
+            ).first()
+            logger.info(f"DocumentViewSet.create: Candidate {candidate.id}, resume_type={resume_type}, has_successful_interview={candidate.has_successful_interview}, found interview={interview.id if interview else None}")
             logger.info(f"Request data: {request.data}")
             if not interview:
-                return Response({'error': 'У вас нет успешного собеседования для загрузки документов'}, status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    {'error': f'У вас нет успешного собеседования для {resume_type.lower()}'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
         except Candidate.DoesNotExist:
             return Response({'error': 'Кандидат не найден'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -398,7 +412,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except IntegrityError as e:
                 logger.error(f"IntegrityError: {str(e)}")
-                return Response({'error': f'Документ этого типа уже загружен для данного собеседования'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'error': f'Документ типа {request.data.get("document_type")} уже загружен для этого собеседования'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -481,7 +498,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
             interview.result = 'FAILURE'
             interview.save()
             Document.objects.filter(interview=interview).delete()
-            message = f'Ваша кандидатура ({interview.get_resume_type_display()}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
+            job_type_display = interview.get_job_type_display() if interview.resume_type == 'JOB' else ''
+            message = f'Ваша кандидатура ({interview.get_resume_type_display()}{" - " + job_type_display if job_type_display else ""}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
             Notification.objects.create(
                 user=candidate.user,
                 message=message,
@@ -493,7 +511,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 template_name='emails/hire_status.html',
                 context={
                     'user': candidate.user,
-                    'application_type': interview.get_resume_type_display().lower(),
+                    'application_type': f"{interview.get_resume_type_display().lower()}{' - ' + job_type_display if job_type_display else ''}",
                     'status': 'Отклонено',
                     'message': 'Для повторной попытки необходимо пройти собеседование заново.'
                 },
@@ -506,6 +524,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsAdminUser])
     def confirm_hire(self, request):
         interview_id = request.data.get('interview_id')
+        hire_date_str = request.data.get('hire_date')
+        custom_message = request.data.get('message')
         try:
             interview = Interview.objects.get(id=interview_id, result='SUCCESS')
             documents = Document.objects.filter(interview=interview)
@@ -532,7 +552,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     'Аттестат/Диплом',
                     'Согласие на обработку персональных данных',
                     'Договор о практике',
-                    'Заявление на практику'
+                    'Заявление на практике'
                 ]
 
             uploaded_types = [doc.document_type for doc in documents]
@@ -542,35 +562,45 @@ class DocumentViewSet(viewsets.ModelViewSet):
             if not all(doc.status == 'ACCEPTED' for doc in documents if doc.document_type in required_types):
                 return Response({'error': 'Все обязательные документы должны быть приняты'}, status=status.HTTP_400_BAD_REQUEST)
 
+            if resume_type == 'JOB' and not interview.job_type:
+                return Response({'error': 'Тип работы не указан для собеседования'}, status=status.HTTP_400_BAD_REQUEST)
+
+            hire_date = timezone.now().date()
+            if hire_date_str:
+                try:
+                    hire_date = datetime.strptime(hire_date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    return Response({'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД'}, status=status.HTTP_400_BAD_REQUEST)
+
             if resume_type == 'JOB':
                 try:
                     Employee.objects.get(user=candidate.user)
                     return Response({'error': 'Пользователь уже является сотрудником'}, status=status.HTTP_400_BAD_REQUEST)
                 except Employee.DoesNotExist:
-                    hire_date = timezone.now().date()
+                    job_type_display = interview.get_job_type_display() or 'Сотрудник'
                     Employee.objects.create(
                         user=candidate.user,
                         department='Не указано',
-                        position='Не указано',
+                        position=job_type_display,
                         hire_date=hire_date
                     )
-                    message = f'Поздравляем! Ваш прием на работу назначен на {hire_date.strftime("%d.%m.%Y")}.'
-                    email_status = 'Приняты на работу'
+                    message = custom_message or f'Поздравляем! Ваш прием на работу ({job_type_display}) назначен на {hire_date.strftime("%d.%m.%Y")}.'
+                    email_status = f'День приёма в ООО "Газпром информ"'
                     email_template = 'emails/hire_confirmation.html'
                     email_context = {
                         'user': candidate.user,
-                        'application_type': interview.get_resume_type_display().lower(),
+                        'application_type': f"работу - {job_type_display}",
                         'status': email_status,
                         'hire_date': hire_date.strftime("%d.%m.%Y")
                     }
             else:
-                hire_date = timezone.now().date()
-                message = f'Поздравляем! Ваш прием на {interview.get_practice_type_display()} практику назначен на {hire_date.strftime("%d.%m.%Y")}.'
-                email_status = f'Приняты на {interview.get_practice_type_display()} практику'
+                practice_type_display = interview.get_practice_type_display() or 'Практика'
+                message = custom_message or f'Поздравляем! Ваш прием на {practice_type_display} практику назначен на {hire_date.strftime("%d.%m.%Y")}.'
+                email_status = f'Приняты на {practice_type_display} практику'
                 email_template = 'emails/hire_confirmation.html'
                 email_context = {
                     'user': candidate.user,
-                    'application_type': interview.get_resume_type_display().lower(),
+                    'application_type': 'практику',
                     'status': email_status,
                     'hire_date': hire_date.strftime("%d.%m.%Y")
                 }
@@ -584,7 +614,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 sent_to_email=True
             )
             send_notification_email(
-                subject='Поздравляем с успешным завершением!',
+                subject='День приёма в ООО "Газпром информ"',
                 template_name=email_template,
                 context=email_context,
                 recipient_list=[candidate.user.email]

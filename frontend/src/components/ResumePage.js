@@ -16,6 +16,7 @@ const ResumePage = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [resumeType, setResumeType] = useState(null);
   const [practiceType, setPracticeType] = useState(null);
+  const [jobType, setJobType] = useState(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('JOB');
 
@@ -34,6 +35,12 @@ const ResumePage = () => {
     { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
     { value: 'PRODUCTION', label: 'Производственная' },
     { value: 'EDUCATIONAL', label: 'Учебная' },
+  ];
+
+  const jobTypeOptions = [
+    { value: 'PROGRAMMER', label: 'Инженер-программист' },
+    { value: 'METHODOLOGIST', label: 'Методолог' },
+    { value: 'SPECIALIST', label: 'Специалист' },
   ];
 
   useEffect(() => {
@@ -89,6 +96,10 @@ const ResumePage = () => {
       setError('Выберите тип практики');
       return;
     }
+    if (resumeType.value === 'JOB' && !jobType) {
+      setError('Выберите тип работы');
+      return;
+    }
 
     const cleanedPhoneNumber = phoneNumber ? phoneNumber.replace(/[\s()-]/g, '') : '';
     if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
@@ -102,6 +113,7 @@ const ResumePage = () => {
       phone_number: cleanedPhoneNumber,
       resume_type: resumeType?.value || 'JOB',
       ...(resumeType?.value === 'PRACTICE' && { practice_type: practiceType?.value || '' }),
+      ...(resumeType?.value === 'JOB' && { job_type: jobType?.value || '' }),
     };
 
     try {
@@ -114,6 +126,7 @@ const ResumePage = () => {
       setPhoneNumber('');
       setResumeType(null);
       setPracticeType(null);
+      setJobType(null);
       setError('');
       toast.success('Резюме успешно отправлено!');
       setActiveTab(response.data.resume_type);
@@ -123,6 +136,7 @@ const ResumePage = () => {
         err.response?.data?.phone_number ||
         err.response?.data?.resume_type ||
         err.response?.data?.practice_type ||
+        err.response?.data?.job_type ||
         err.response?.data?.error ||
         'Ошибка при отправке резюме';
       toast.error(errorMsg);
@@ -153,7 +167,7 @@ const ResumePage = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Содержание</TableCell>
-                  {isPractice && <TableCell>Тип практики</TableCell>}
+                  {isPractice ? <TableCell>Тип практики</TableCell> : <TableCell>Тип работы</TableCell>}
                   <TableCell>Образование</TableCell>
                   <TableCell>Телефон</TableCell>
                   <TableCell>Статус</TableCell>
@@ -165,7 +179,11 @@ const ResumePage = () => {
                 {resumesToShow.map((resume) => (
                   <TableRow key={resume.id}>
                     <TableCell>{resume.content.substring(0, 50)}...</TableCell>
-                    {isPractice && <TableCell>{resume.practice_type_display || '-'}</TableCell>}
+                    {isPractice ? (
+                      <TableCell>{resume.practice_type_display || '-'}</TableCell>
+                    ) : (
+                      <TableCell>{resume.job_type_display || '-'}</TableCell>
+                    )}
                     <TableCell>{resume.education_display || 'Не указано'}</TableCell>
                     <TableCell>{resume.phone_number || 'Не указан'}</TableCell>
                     <TableCell>{resume.status_display}</TableCell>
@@ -251,6 +269,19 @@ const ResumePage = () => {
                 />
               </div>
             )}
+            {resumeType?.value === 'JOB' && (
+              <div className="mb-3">
+                <label htmlFor="jobType" className="form-label">Тип работы</label>
+                <Select
+                  id="jobType"
+                  options={jobTypeOptions}
+                  value={jobType}
+                  onChange={setJobType}
+                  placeholder="Выберите тип работы"
+                  isClearable
+                />
+              </div>
+            )}
             <div className="mb-3">
               <label htmlFor="resumeContent" className="form-label">Содержание резюме</label>
               <textarea
@@ -284,6 +315,7 @@ const ResumePage = () => {
                 placeholder="+7(___) ___-__-__"
               />
             </div>
+            {error && <div className="alert alert-danger">{error}</div>}
             <button type="submit" className="btn btn-primary">Отправить резюме</button>
           </form>
         </div>

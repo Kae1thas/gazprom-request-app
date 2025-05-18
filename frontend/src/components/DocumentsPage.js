@@ -81,6 +81,7 @@ const DocumentsPage = () => {
     formData.append('file_path', file);
     const documentType = resumeType === 'JOB' ? effectiveJobDocumentTypes[slot - 1] : practiceDocumentTypes[slot - 1];
     formData.append('document_type', documentType);
+    formData.append('resume_type', resumeType); // Добавляем resume_type
 
     try {
       const response = await axios.post(
@@ -89,12 +90,7 @@ const DocumentsPage = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success(`Документ "${documentType}" успешно загружен!`);
-
-      const documentsResponse = await axios.get('http://localhost:8000/api/documents/', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.log('Updated documents:', JSON.stringify(documentsResponse.data, null, 2));
-      setDocuments(documentsResponse.data);
+      setDocuments((prev) => [...prev, response.data]);
     } catch (err) {
       const errorMessage =
         err.response?.data?.error ||
@@ -102,7 +98,13 @@ const DocumentsPage = () => {
         err.response?.data?.document_type ||
         err.response?.data?.non_field_errors ||
         'Ошибка при загрузке документа';
-      toast.error(errorMessage);
+      if (errorMessage.includes('уже загружен')) {
+        toast.error(`Документ "${documentType}" уже загружен. Удалите существующий документ, чтобы загрузить новый.`);
+      } else if (errorMessage.includes('нет успешного собеседования')) {
+        toast.error(`Нет успешного собеседования для ${resumeType === 'JOB' ? 'трудоустройства' : 'практики'}.`);
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -223,8 +225,14 @@ const DocumentsPage = () => {
           <TableBody>
             {documentTypes.map((type, index) => {
               const slotNumber = index + 1;
-              const doc = documents.find((d) => d.document_type === type && d.interview?.resume_type === resumeType);
-              console.log(`Checking type=${type}, resumeType=${resumeType}, found doc:`, doc);
+              const doc = documents.find((d) => {
+                const matches = d.document_type === type && d.interview?.resume_type === resumeType;
+                console.log(
+                  `Checking doc: type=${d.document_type}, interview.resume_type=${d.interview?.resume_type}, expected=${resumeType}, matches=${matches}`
+                );
+                return matches;
+              });
+              console.log(`Found doc for type=${type}, resumeType=${resumeType}:`, doc);
               return (
                 <TableRow key={`${resumeType}-${slotNumber}`}>
                   <TableCell>{type}</TableCell>
@@ -235,8 +243,8 @@ const DocumentsPage = () => {
                           doc.status === 'ACCEPTED'
                             ? 'bg-success'
                             : doc.status === 'REJECTED'
-                            ? 'bg-danger'
-                            : 'bg-warning'
+                              ? 'bg-danger'
+                              : 'bg-warning'
                         }`}
                       >
                         {doc.status_display}

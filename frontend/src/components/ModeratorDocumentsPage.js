@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import {
   Table, TableBody, TableCell, TableHead, TableRow, Button, Tooltip, TextField, Select, MenuItem, FormControl, InputLabel,
-  Collapse, IconButton, Box, Typography
+  Collapse, IconButton, Box, Typography, Modal
 } from '@mui/material';
 import { Warning, PersonAdd, PersonRemove, Download, Visibility, ExpandMore, ExpandLess } from '@mui/icons-material';
 import DocumentModal from './DocumentModal';
@@ -22,6 +22,18 @@ const documentTypes = [
   'Трудовая книжка (опционально)',
 ];
 
+const modalStyle = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 600,
+  bgcolor: 'background.paper',
+  boxShadow: 24,
+  p: 4,
+  borderRadius: 2,
+};
+
 const ModeratorDocumentsPage = () => {
   const { user } = useContext(AuthContext);
   const [interviews, setInterviews] = useState([]);
@@ -34,6 +46,10 @@ const ModeratorDocumentsPage = () => {
   const [sortBy, setSortBy] = useState('id');
   const [sortOrder, setSortOrder] = useState('asc');
   const [expanded, setExpanded] = useState({});
+  const [openConfirmModal, setOpenConfirmModal] = useState(false);
+  const [selectedInterview, setSelectedInterview] = useState(null);
+  const [hireDate, setHireDate] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
 
   const formatDate = (isoDate) => {
     if (!isoDate) return 'Не указана';
@@ -120,16 +136,36 @@ const ModeratorDocumentsPage = () => {
     }
   };
 
-  const handleConfirmHire = async (interviewId) => {
+  const handleOpenConfirmModal = (interview) => {
+    setSelectedInterview(interview);
+    const jobTypeDisplay = interview.resume_type === 'JOB' && interview.job_type_display ? interview.job_type_display : '';
+    const applicationType = interview.resume_type === 'JOB' 
+      ? `работу${jobTypeDisplay ? ` (${jobTypeDisplay})` : ''}` 
+      : `${interview.practice_type_display || 'практику'}`;
+    const defaultMessage = `Уважаемый(ая) ${interview.candidate.user.first_name}!\n\nПоздравляем! Ваш прием на ${applicationType} назначен на [дата].\n\nСтатус: Приняты на ${applicationType}\n\nПожалуйста, проверьте ваш личный кабинет для получения дополнительной информации.\n\nЕсли у вас есть вопросы, свяжитесь с нами по адресу info@x.ai.\n\nС уважением,\nКоманда платформы`;
+    setEmailMessage(defaultMessage);
+    setHireDate('');
+    setOpenConfirmModal(true);
+  };
+
+  const handleCloseConfirmModal = () => {
+    setOpenConfirmModal(false);
+    setSelectedInterview(null);
+    setHireDate('');
+    setEmailMessage('');
+  };
+
+  const handleConfirmHire = async (interviewId, hireDate, message) => {
     const token = localStorage.getItem('token');
     try {
       const response = await axios.post(
         'http://localhost:8000/api/documents/confirm_hire/',
-        { interview_id: interviewId },
+        { interview_id: interviewId, hire_date: hireDate, message },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success(response.data.message || 'Кандидат успешно принят на работу или практику!');
       setInterviews((prev) => prev.filter((i) => i.id !== interviewId));
+      handleCloseConfirmModal();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Ошибка при подтверждении найма');
     }
@@ -252,6 +288,11 @@ const ModeratorDocumentsPage = () => {
                     Тип практики: {interview.practice_type_display || '-'}
                   </Typography>
                 )}
+                {interview.resume_type === 'JOB' && (
+                  <Typography variant="body2" color="text.secondary">
+                    Тип работы: {interview.job_type_display || '-'}
+                  </Typography>
+                )}
                 <Typography variant="body2" color="text.secondary">
                   Дата: {formatDate(interview.scheduled_at)}
                 </Typography>
@@ -286,8 +327,8 @@ const ModeratorDocumentsPage = () => {
                                   doc.status === 'ACCEPTED'
                                     ? 'bg-success'
                                     : doc.status === 'REJECTED'
-                                    ? 'bg-danger'
-                                    : 'bg-warning'
+                                      ? 'bg-danger'
+                                      : 'bg-warning'
                                 }`}
                               >
                                 {doc.status_display}
@@ -380,7 +421,7 @@ const ModeratorDocumentsPage = () => {
                     .every((doc) => doc.status === 'ACCEPTED') && (
                     <Tooltip title="Подтвердить найм">
                       <Button
-                        onClick={() => handleConfirmHire(interview.id)}
+                        onClick={() => handleOpenConfirmModal(interview)}
                         sx={{
                           backgroundColor: '#2e7d32',
                           color: '#fff',
@@ -407,6 +448,60 @@ const ModeratorDocumentsPage = () => {
           onStatusUpdate={handleStatusUpdate}
           isModerator={true}
         />
+      )}
+      {selectedInterview && (
+        <Modal open={openConfirmModal} onClose={handleCloseConfirmModal}>
+          <Box sx={modalStyle}>
+            <Typography variant="h6" gutterBottom>
+              Подтверждение найма
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Выберите дату приема и проверьте сообщение, которое будет отправлено кандидату.
+            </Typography>
+            <TextField
+              label="Дата приема"
+              type="date"
+              value={hireDate}
+              onChange={(e) => setHireDate(e.target.value)}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Сообщение для отправки"
+              multiline
+              rows={8}
+              value={emailMessage.replace('[дата]', hireDate ? formatDate(hireDate) : '[дата]')}
+              onChange={(e) => setEmailMessage(e.target.value)}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
+            <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
+              <Button
+                onClick={handleCloseConfirmModal}
+                sx={{
+                  backgroundColor: '#d32f2f',
+                  color: '#fff',
+                  '&:hover': { backgroundColor: '#b71c1c' },
+                }}
+              >
+                Отмена
+              </Button>
+              <Button
+                onClick={() => handleConfirmHire(selectedInterview.id, hireDate, emailMessage.replace('[дата]', hireDate ? formatDate(hireDate) : ''))}
+                disabled={!hireDate}
+                sx={{
+                  backgroundColor: '#2e7d32',
+                  color: '#fff',
+                  '&:hover': { backgroundColor: '#1b5e20' },
+                  opacity: !hireDate ? 0.5 : 1,
+                }}
+              >
+                Подтвердить
+              </Button>
+            </Box>
+          </Box>
+        </Modal>
       )}
     </Box>
   );

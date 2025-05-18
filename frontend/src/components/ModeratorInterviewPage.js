@@ -17,6 +17,14 @@ const ModeratorInterviewPage = () => {
   const [sortBy, setSortBy] = useState('id');
   const [sortOrder, setSortOrder] = useState('asc');
 
+  const jobTypeOrder = {
+    'PROGRAMMER': 1,
+    'METHODOLOGIST': 2,
+    'SPECIALIST': 3,
+    '': 0,
+    null: 0
+  };
+
   useEffect(() => {
     if (loading) return;
 
@@ -82,6 +90,10 @@ const ModeratorInterviewPage = () => {
         const dateA = new Date(a.scheduled_at || '1970-01-01');
         const dateB = new Date(b.scheduled_at || '1970-01-01');
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      } else if (sortBy === 'job_type' && activeTab === 'JOB') {
+        const jobA = jobTypeOrder[a.job_type || ''] || 0;
+        const jobB = jobTypeOrder[b.job_type || ''] || 0;
+        return sortOrder === 'asc' ? jobA - jobB : jobB - jobA;
       }
       return 0;
     });
@@ -107,7 +119,11 @@ const ModeratorInterviewPage = () => {
                 <TableRow>
                   <TableCell>Кандидат</TableCell>
                   <TableCell>Сотрудник</TableCell>
-                  {isPractice && <TableCell>Тип практики</TableCell>}
+                  {isPractice ? (
+                    <TableCell>Тип практики</TableCell>
+                  ) : (
+                    <TableCell>Тип работы</TableCell>
+                  )}
                   <TableCell>Дата и время</TableCell>
                   <TableCell>Статус</TableCell>
                   <TableCell>Результат</TableCell>
@@ -127,11 +143,11 @@ const ModeratorInterviewPage = () => {
                         ? `${interview.employee.user.last_name || ''} ${interview.employee.user.first_name || ''} ${interview.employee.user.patronymic || ''}`.trim()
                         : 'Сотрудник не указан'}
                     </TableCell>
-                    {isPractice && (
-                      <TableCell>
-                        {interview.practice_type_display || interview.practice_type || '-'}
-                      </TableCell>
-                    )}
+                    <TableCell>
+                      {isPractice
+                        ? interview.practice_type_display || '-'
+                        : interview.job_type_display || '-'}
+                    </TableCell>
                     <TableCell>
                       {new Date(interview.scheduled_at).toLocaleString('ru-RU', {
                         day: '2-digit',
@@ -238,6 +254,7 @@ const ModeratorInterviewPage = () => {
             <MenuItem value="id">ID собеседования</MenuItem>
             <MenuItem value="name">Имя кандидата</MenuItem>
             <MenuItem value="date">Дата собеседования</MenuItem>
+            {activeTab === 'JOB' && <MenuItem value="job_type">Тип работы</MenuItem>}
           </Select>
         </FormControl>
         <FormControl variant="outlined" size="small" sx={{ width: 200 }}>

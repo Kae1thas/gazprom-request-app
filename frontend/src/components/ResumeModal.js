@@ -6,7 +6,6 @@ import { FaEye, FaEdit, FaTrash } from 'react-icons/fa';
 import Select from 'react-select';
 import { Modal, Box, Typography, Button, TextField } from '@mui/material';
 
-// Опции перемещены наверх, до использования в useState
 const educationOptions = [
   { value: 'SECONDARY', label: 'Среднее' },
   { value: 'HIGHER', label: 'Высшее' },
@@ -24,6 +23,12 @@ const practiceTypeOptions = [
   { value: 'EDUCATIONAL', label: 'Учебная' },
 ];
 
+const jobTypeOptions = [
+  { value: 'PROGRAMMER', label: 'Инженер-программист' },
+  { value: 'METHODOLOGIST', label: 'Методолог' },
+  { value: 'SPECIALIST', label: 'Специалист' },
+];
+
 const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -39,6 +44,11 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
   const [editPracticeType, setEditPracticeType] = useState(
     resume.practice_type
       ? practiceTypeOptions.find((opt) => opt.value === resume.practice_type) || null
+      : null
+  );
+  const [editJobType, setEditJobType] = useState(
+    resume.job_type
+      ? jobTypeOptions.find((opt) => opt.value === resume.job_type) || null
       : null
   );
   const [statusComment, setStatusComment] = useState('');
@@ -93,6 +103,10 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
       setError('Выберите тип практики');
       return;
     }
+    if (editResumeType.value === 'JOB' && !editJobType) {
+      setError('Выберите тип работы');
+      return;
+    }
 
     const cleanedPhoneNumber = editPhoneNumber ? editPhoneNumber.replace(/[\s()-]/g, '') : '';
     if (cleanedPhoneNumber && (!cleanedPhoneNumber.startsWith('+7') || cleanedPhoneNumber.length !== 12)) {
@@ -106,6 +120,7 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
       phone_number: cleanedPhoneNumber,
       resume_type: editResumeType?.value || 'JOB',
       ...(editResumeType?.value === 'PRACTICE' && { practice_type: editPracticeType?.value || '' }),
+      ...(editResumeType?.value === 'JOB' && { job_type: editJobType?.value || '' }),
     };
 
     try {
@@ -121,6 +136,7 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
         err.response?.data?.phone_number ||
         err.response?.data?.resume_type ||
         err.response?.data?.practice_type ||
+        err.response?.data?.job_type ||
         err.response?.data?.education ||
         err.response?.data?.error ||
         'Ошибка при обновлении резюме';
@@ -237,7 +253,11 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
                 id="editResumeType"
                 options={resumeTypeOptions}
                 value={editResumeType}
-                onChange={setEditResumeType}
+                onChange={(option) => {
+                  setEditResumeType(option);
+                  if (option?.value !== 'PRACTICE') setEditPracticeType(null);
+                  if (option?.value !== 'JOB') setEditJobType(null);
+                }}
                 placeholder="Выберите тип заявки"
                 isClearable
               />
@@ -251,6 +271,19 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
                   value={editPracticeType}
                   onChange={setEditPracticeType}
                   placeholder="Выберите тип практики"
+                  isClearable
+                />
+              </div>
+            )}
+            {editResumeType?.value === 'JOB' && (
+              <div className="mb-3">
+                <label htmlFor="editJobType" className="form-label">Тип работы</label>
+                <Select
+                  id="editJobType"
+                  options={jobTypeOptions}
+                  value={editJobType}
+                  onChange={setEditJobType}
+                  placeholder="Выберите тип работы"
                   isClearable
                 />
               </div>
@@ -323,6 +356,9 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
             <Typography><strong>Тип заявки:</strong> {resume.resume_type === 'JOB' ? 'Работа' : 'Практика'}</Typography>
             {resume.resume_type === 'PRACTICE' && (
               <Typography><strong>Тип практики:</strong> {resume.practice_type_display || '-'}</Typography>
+            )}
+            {resume.resume_type === 'JOB' && (
+              <Typography><strong>Тип работы:</strong> {resume.job_type_display || '-'}</Typography>
             )}
             <Typography><strong>Образование:</strong> {resume.education_display || 'Не указано'}</Typography>
             <Typography><strong>Номер телефона:</strong> {resume.phone_number || 'Не указан'}</Typography>

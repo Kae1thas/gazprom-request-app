@@ -77,7 +77,11 @@ const InterviewPage = () => {
                 <TableRow>
                   <TableCell>Кандидат</TableCell>
                   <TableCell>Сотрудник</TableCell>
-                  {isPractice && <TableCell>Тип практики</TableCell>}
+                  {isPractice ? (
+                    <TableCell>Тип практики</TableCell>
+                  ) : (
+                    <TableCell>Тип работы</TableCell>
+                  )}
                   <TableCell>Дата и время</TableCell>
                   <TableCell>Статус</TableCell>
                   <TableCell>Результат</TableCell>
@@ -97,11 +101,11 @@ const InterviewPage = () => {
                         ? `${interview.employee.user.last_name || ''} ${interview.employee.user.first_name || ''} ${interview.employee.user.patronymic || ''}`.trim()
                         : 'Сотрудник не указан'}
                     </TableCell>
-                    {isPractice && (
-                      <TableCell>
-                        {interview.practice_type_display || practiceTypeDisplayMap[interview.practice_type] || '-'}
-                      </TableCell>
-                    )}
+                    <TableCell>
+                      {isPractice
+                        ? interview.practice_type_display || practiceTypeDisplayMap[interview.practice_type] || '-'
+                        : interview.job_type_display || '-'}
+                    </TableCell>
                     <TableCell>
                       {new Date(interview.scheduled_at).toLocaleString('ru-RU', {
                         day: '2-digit',
