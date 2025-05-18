@@ -63,7 +63,6 @@ const Navbar = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setNotifications(notifications.filter((n) => n.id !== notificationId));
-      setUnreadCount(unreadCount - 1);
       window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId } }));
     } catch (err) {
       console.error('Ошибка отметки уведомления:', err);

@@ -26,7 +26,6 @@ const Sidebar = () => {
     { path: '/resume/moderator', label: 'Резюме', icon: <Description /> },
     { path: '/interview/moderator', label: 'Собеседования', icon: <CalendarToday /> },
     { path: '/documents/moderator', label: 'Документы', icon: <Assignment /> },
-    { path: '/notifications', label: 'Уведомления', icon: <Notifications /> },
   ];
 
   const menuItems = user?.isStaff ? moderatorMenuItems : candidateMenuItems;

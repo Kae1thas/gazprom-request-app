@@ -142,7 +142,7 @@ const ModeratorDocumentsPage = () => {
     const applicationType = interview.resume_type === 'JOB' 
       ? `работу${jobTypeDisplay ? ` (${jobTypeDisplay})` : ''}` 
       : `${interview.practice_type_display || 'практику'}`;
-    const defaultMessage = `Уважаемый(ая) ${interview.candidate.user.first_name}!\n\nПоздравляем! Ваш прием на ${applicationType} назначен на [дата].\n\nСтатус: Приняты на ${applicationType}\n\nПожалуйста, проверьте ваш личный кабинет для получения дополнительной информации.\n\nЕсли у вас есть вопросы, свяжитесь с нами по адресу info@x.ai.\n\nС уважением,\nКоманда платформы`;
+    const defaultMessage = `Уважаемый(ая) ${interview.candidate.user.first_name} !\n\nПоздравляем! Ваш прием на ${applicationType} назначен на [дата].\n\nСтатус: Приняты на ${applicationType}\n\nПожалуйста, проверьте ваш личный кабинет для получения дополнительной информации.\n\nЕсли у вас есть вопросы, свяжитесь с нами по адресу shishaghoul@gmail.com.\n\nС уважением,\n«Газпром Карьера»`;
     setEmailMessage(defaultMessage);
     setHireDate('');
     setOpenConfirmModal(true);
@@ -231,8 +231,7 @@ const ModeratorDocumentsPage = () => {
 
   return (
     <Box className="container mx-auto mt-5 pl-64 pt-20">
-      <Typography variant="h4" sx={{ textAlign: 'center', mb: 4 }}>Управление документами</Typography>
-      
+      <h1 className="mb-4">Управление документами</h1>
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
         <TextField
           label="Поиск по имени кандидата"

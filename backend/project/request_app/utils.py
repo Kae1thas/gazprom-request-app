@@ -7,14 +7,6 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 def send_notification_email(subject, template_name, context, recipient_list):
-    """
-    Отправляет email с использованием HTML-шаблона.
-    :param subject: Тема письма
-    :param template_name: Имя шаблона (например, 'emails/registration.html')
-    :param context: Контекст для шаблона
-    :param recipient_list: Список email-адресов получателей
-    :return: True если отправлено, False если ошибка
-    """
     try:
         html_message = render_to_string(template_name, context)
         plain_message = strip_tags(html_message)

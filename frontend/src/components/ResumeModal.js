@@ -345,6 +345,8 @@ const ResumeModal = ({ resume, resumes, setResumes, isModerator }) => {
           boxShadow: 24,
           p: 4,
           borderRadius: 2,
+          maxHeight: '80vh', // Ограничиваем максимальную высоту (80% высоты окна браузера)
+          overflowY: 'auto', // Включаем вертикальную прокрутку
         }}>
           <Typography variant="h6">Просмотр резюме</Typography>
           <Box sx={{ mt: 2 }}>

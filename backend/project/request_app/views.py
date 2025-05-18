@@ -119,9 +119,10 @@ class ResumeCreateView(APIView):
         if serializer.is_valid():
             try:
                 resume = serializer.save(candidate=candidate)
+                vacancy_name = resume.get_job_type_display() if resume.resume_type == 'JOB' else resume.get_practice_type_display()
                 Notification.objects.create(
                     user=resume.candidate.user,
-                    message=f'Ваше резюме #{resume.id} ({resume.get_resume_type_display()}) успешно отправлено.',
+                    message=f'Ваше резюме на {resume.get_resume_type_display()} ({vacancy_name}) успешно отправлено.',
                     type='RESUME_STATUS',
                     sent_to_email=True
                 )
@@ -130,7 +131,7 @@ class ResumeCreateView(APIView):
                     template_name='emails/resume_submission.html',
                     context={
                         'user': resume.candidate.user,
-                        'resume_id': resume.id,
+                        'vacancy_name': vacancy_name,
                         'resume_type': resume.get_resume_type_display(),
                     },
                     recipient_list=[resume.candidate.user.email]
@@ -158,7 +159,8 @@ class ResumeStatusUpdateView(APIView):
                 'ACCEPTED': 'Принято',
                 'REJECTED': 'Отклонено'
             }.get(resume.status, resume.status)
-            message = f'Статус вашего резюме #{resume.id} ({resume.get_resume_type_display()}) изменен на: {status_display}'
+            vacancy_name = resume.get_job_type_display() if resume.resume_type == 'JOB' else resume.get_practice_type_display()
+            message = f'Статус вашего резюме на {resume.get_resume_type_display()} ({vacancy_name}) изменен на: {status_display}'
             if comment:
                 message += f'\nКомментарий: {comment}'
             Notification.objects.create(
@@ -173,8 +175,8 @@ class ResumeStatusUpdateView(APIView):
                 template_name='emails/resume_status.html',
                 context={
                     'user': resume.candidate.user,
-                    'resume_id': resume.id,
                     'resume_type': resume.get_resume_type_display(),
+                    'vacancy_name': vacancy_name,
                     'status': status_display,
                     'comment': comment or 'Отсутствует'
                 },
@@ -273,15 +275,14 @@ class InterviewViewSet(viewsets.ModelViewSet):
             'CANCELLED': 'Отменено'
         }.get(instance.status, instance.status)
         if instance.status == 'COMPLETED':
-            job_type_display = instance.get_job_type_display() if instance.resume_type == 'JOB' else ''
-            message = f'Собеседование #{instance.id} ({instance.get_resume_type_display()}{" - " + job_type_display if job_type_display else ""}) завершено. Результат: {result_display}.'
+            job_type_display = instance.get_job_type_display() if instance.resume_type == 'JOB' else instance.get_practice_type_display()
+            message = f'Собеседование на {instance.get_resume_type_display()} ({job_type_display}) завершено. Результат: {result_display}.'
             email_template = 'emails/interview_result_success.html' if instance.result == 'SUCCESS' else 'emails/interview_result_failure.html'
             email_subject = 'Результат вашего собеседования'
             email_context = {
                 'user': instance.candidate.user,
-                'interview_id': instance.id,
                 'resume_type': instance.get_resume_type_display(),
-                'job_type': job_type_display,
+                'vacancy_name': job_type_display,
                 'result': result_display,
                 'comment': instance.comment or 'Отсутствует'
             }
@@ -320,10 +321,10 @@ class InterviewViewSet(viewsets.ModelViewSet):
         serializer = InterviewCreateSerializer(data=request.data)
         if serializer.is_valid():
             interview = serializer.save()
-            job_type_display = interview.get_job_type_display() if interview.resume_type == 'JOB' else ''
+            vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
             Notification.objects.create(
                 user=interview.candidate.user,
-                message=f'Назначено собеседование #{interview.id} ({interview.get_resume_type_display()}{" - " + job_type_display if job_type_display else ""}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}',
+                message=f'Назначено собеседование на {interview.get_resume_type_display()} ({vacancy_name}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}',
                 type='INTERVIEW',
                 sent_to_email=True
             )
@@ -332,9 +333,8 @@ class InterviewViewSet(viewsets.ModelViewSet):
                 template_name='emails/interview_notification.html',
                 context={
                     'user': interview.candidate.user,
-                    'interview_id': interview.id,
                     'resume_type': interview.get_resume_type_display(),
-                    'job_type': job_type_display,
+                    'vacancy_name': vacancy_name,
                     'scheduled_at': interview.scheduled_at.strftime("%d.%m.%Y %H:%M"),
                     'employee_name': f"{interview.employee.user.last_name} {interview.employee.user.first_name}"
                 },
@@ -403,9 +403,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     status=document.status,
                     comment='Документ загружен'
                 )
+                vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
                 Notification.objects.create(
                     user=interview.candidate.user,
-                    message=f'Ваш документ #{document.id} ({document.document_type}) успешно загружен.',
+                    message=f'Ваш документ ({document.document_type}) для {interview.get_resume_type_display()} ({vacancy_name}) успешно загружен.',
                     type='DOCUMENT',
                     sent_to_email=False
                 )
@@ -434,9 +435,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
             status=document.status,
             comment=document.comment
         )
+        vacancy_name = document.interview.get_job_type_display() if document.interview.resume_type == 'JOB' else document.interview.get_practice_type_display()
         Notification.objects.create(
             user=document.interview.candidate.user,
-            message=f'Статус вашего документа #{document.id} ({document.document_type}) изменен на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}',
+            message=f'Статус вашего документа ({document.document_type}) для {document.interview.get_resume_type_display()} ({vacancy_name}) изменен на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}',
             type='DOCUMENT',
             sent_to_email=True
         )
@@ -445,8 +447,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
             template_name='emails/document_notification.html',
             context={
                 'user': document.interview.candidate.user,
-                'document_id': document.id,
                 'document_type': document.document_type,
+                'resume_type': document.interview.get_resume_type_display(),
+                'vacancy_name': vacancy_name,
                 'status': document.get_status_display(),
                 'comment': comment or 'Отсутствует'
             },
@@ -467,7 +470,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         missing_types = request.data.get('missing_types', [])
         try:
             interview = Interview.objects.get(id=interview_id)
-            message = f'Необходимо загрузить следующие документы: {", ".join(missing_types)}.'
+            vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
+            message = f'Необходимо загрузить следующие документы для {interview.get_resume_type_display()} ({vacancy_name}): {", ".join(missing_types)}.'
             Notification.objects.create(
                 user=interview.candidate.user,
                 message=message,
@@ -498,8 +502,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
             interview.result = 'FAILURE'
             interview.save()
             Document.objects.filter(interview=interview).delete()
-            job_type_display = interview.get_job_type_display() if interview.resume_type == 'JOB' else ''
-            message = f'Ваша кандидатура ({interview.get_resume_type_display()}{" - " + job_type_display if job_type_display else ""}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
+            vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
+            message = f'Ваша кандидатура на {interview.get_resume_type_display()} ({vacancy_name}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
             Notification.objects.create(
                 user=candidate.user,
                 message=message,
@@ -511,7 +515,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 template_name='emails/hire_status.html',
                 context={
                     'user': candidate.user,
-                    'application_type': f"{interview.get_resume_type_display().lower()}{' - ' + job_type_display if job_type_display else ''}",
+                    'application_type': interview.get_resume_type_display().lower(),
+                    'vacancy_name': vacancy_name,
                     'status': 'Отклонено',
                     'message': 'Для повторной попытки необходимо пройти собеседование заново.'
                 },
@@ -572,12 +577,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 except ValueError:
                     return Response({'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД'}, status=status.HTTP_400_BAD_REQUEST)
 
+            vacancy_name = interview.get_job_type_display() if resume_type == 'JOB' else interview.get_practice_type_display()
             if resume_type == 'JOB':
                 try:
                     Employee.objects.get(user=candidate.user)
                     return Response({'error': 'Пользователь уже является сотрудником'}, status=status.HTTP_400_BAD_REQUEST)
                 except Employee.DoesNotExist:
-                    job_type_display = interview.get_job_type_display() or 'Сотрудник'
+                    job_type_display = vacancy_name or 'Сотрудник'
                     Employee.objects.create(
                         user=candidate.user,
                         department='Не указано',
@@ -589,18 +595,20 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     email_template = 'emails/hire_confirmation.html'
                     email_context = {
                         'user': candidate.user,
-                        'application_type': f"работу - {job_type_display}",
+                        'application_type': 'работу',
+                        'vacancy_name': job_type_display,
                         'status': email_status,
                         'hire_date': hire_date.strftime("%d.%m.%Y")
                     }
             else:
-                practice_type_display = interview.get_practice_type_display() or 'Практика'
+                practice_type_display = vacancy_name or 'Практика'
                 message = custom_message or f'Поздравляем! Ваш прием на {practice_type_display} практику назначен на {hire_date.strftime("%d.%m.%Y")}.'
                 email_status = f'Приняты на {practice_type_display} практику'
                 email_template = 'emails/hire_confirmation.html'
                 email_context = {
                     'user': candidate.user,
                     'application_type': 'практику',
+                    'vacancy_name': practice_type_display,
                     'status': email_status,
                     'hire_date': hire_date.strftime("%d.%m.%Y")
                 }

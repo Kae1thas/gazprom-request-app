@@ -50,7 +50,6 @@ const NotificationsPage = () => {
         )
       );
       toast.success('Уведомление помечено как прочитанное');
-      // Оповещаем другие компоненты об изменении
       window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId } }));
     } catch (err) {
       toast.error('Ошибка при отметке уведомления');
@@ -79,9 +78,19 @@ const NotificationsPage = () => {
     }
   };
 
+  // Фильтрация и сортировка уведомлений
   const filteredNotifications = filterType === 'all'
     ? notifications
     : notifications.filter((n) => n.type === filterType);
+
+  const sortedNotifications = [...filteredNotifications].sort((a, b) => {
+    // Сначала сортируем по статусу прочтения (непрочитанные выше)
+    if (a.is_read !== b.is_read) {
+      return a.is_read ? 1 : -1;
+    }
+    // Затем сортируем по дате (от новых к старым)
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
 
   if (loading) return <div className="container mt-5">Загрузка...</div>;
   if (error) return <div className="container mt-5 alert alert-danger">{error}</div>;
@@ -110,7 +119,7 @@ const NotificationsPage = () => {
           </FormControl>
         </div>
         <div className="card-body">
-          {filteredNotifications.length === 0 ? (
+          {sortedNotifications.length === 0 ? (
             <p>Уведомления отсутствуют.</p>
           ) : (
             <>
@@ -118,7 +127,7 @@ const NotificationsPage = () => {
                 variant="contained"
                 color="primary"
                 onClick={markAllAsRead}
-                disabled={filteredNotifications.every((n) => n.is_read)}
+                disabled={sortedNotifications.every((n) => n.is_read)}
                 sx={{ mb: 2 }}
               >
                 Пометить все как прочитанные
@@ -135,7 +144,7 @@ const NotificationsPage = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredNotifications.map((notification) => (
+                    {sortedNotifications.map((notification) => (
                       <TableRow key={notification.id}>
                         <TableCell>
                           {{
@@ -147,7 +156,7 @@ const NotificationsPage = () => {
                           }[notification.type] || 'Другое'}
                         </TableCell>
                         <TableCell style={{ whiteSpace: 'pre-wrap' }}>{notification.message}</TableCell>
-                        <TableCell>{new Date(notification.created_at).toLocaleString()}</TableCell>
+                                                <TableCell>{new Date(notification.created_at).toLocaleString()}</TableCell>
                         <TableCell>
                           <span
                             className={`badge ${notification.is_read ? 'bg-success' : 'bg-warning'}`}

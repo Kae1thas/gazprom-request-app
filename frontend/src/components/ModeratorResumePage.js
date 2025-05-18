@@ -197,7 +197,7 @@ const ModeratorResumePage = () => {
 
   return (
     <Box className="container mx-auto mt-5 pl-64 pt-20">
-      <Typography variant="h4" className="text-center mb-4">Управление резюме</Typography>
+      <h1 className="mb-4">Управление резюме</h1>
       {error && <div className="alert alert-danger">{error}</div>}
 
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>

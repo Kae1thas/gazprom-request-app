@@ -225,9 +225,7 @@ const ModeratorInterviewPage = () => {
 
   return (
     <Box className="container mt-5 pl-64 pt-20">
-      <Typography variant="h4" sx={{ textAlign: 'center', mb: 4 }}>
-        Управление собеседованиями
-      </Typography>
+      <h1 className="mb-4">Управление собеседованиями</h1>
       {error && (
         <div className="alert alert-danger" mb={2}>
           {error}
