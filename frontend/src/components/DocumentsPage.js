@@ -337,7 +337,7 @@ const DocumentsPage = () => {
 
   return (
     <div className="container mt-5">
-      <h1 className="mb-4">Документы</h1>
+      <h1 className="mb-4">Мои документы</h1>
       <p>Загрузите необходимые документы для завершения процесса найма или практики.</p>
       {error && <div className="alert alert-danger">{error}</div>}
       <Tabs value={activeTab} onChange={handleTabChange} aria-label="Документы по типу">

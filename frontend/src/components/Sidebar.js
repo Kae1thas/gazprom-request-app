@@ -12,13 +12,13 @@ const Sidebar = () => {
 
   const candidateMenuItems = [
     { path: '/home', label: 'Главная', icon: <Home /> },
-    { path: '/resume', label: 'Моё резюме', icon: <Description /> },
+    { path: '/resume', label: 'Резюме', icon: <Description /> },
     { path: '/interview', label: 'Собеседование', icon: <CalendarToday /> },
     ...(hasSuccessfulInterview.JOB || hasSuccessfulInterview.PRACTICE
       ? [{ path: '/documents', label: 'Документы', icon: <AttachFile /> }]
       : []),
     { path: '/notifications', label: 'Уведомления', icon: <Notifications /> },
-    { path: '/final-status', label: 'Финальный статус', icon: <CheckCircle /> },
+    { path: '/final-status', label: 'Прогресс', icon: <CheckCircle /> },
   ];
 
   const moderatorMenuItems = [

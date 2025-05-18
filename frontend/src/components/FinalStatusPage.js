@@ -101,7 +101,7 @@ const FinalStatusPage = () => {
 
   return (
     <div className="container mt-5">
-      <h1 className="mb-4">Финальный статус</h1>
+      <h1 className="mb-4">Мой прогресс</h1>
       <Card className="p-3">
         <h5>Ваш статус: <span className={`badge ${finalStatus.className}`}>{finalStatus.status}</span></h5>
         <p>{finalStatus.message}</p>

@@ -97,7 +97,7 @@ const NotificationsPage = () => {
 
   return (
     <div className="container mt-5">
-      <h1 className="mb-4">Уведомления</h1>
+      <h1 className="mb-4">Мои уведомления</h1>
       <div className="card mb-4">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h2 className="mb-0">Ваши уведомления</h2>
