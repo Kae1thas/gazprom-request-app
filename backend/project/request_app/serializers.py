@@ -205,13 +205,24 @@ class InterviewCreateSerializer(serializers.ModelSerializer):
         practice_type = data.get('practice_type')
         job_type = data.get('job_type')
 
-        if not Resume.objects.filter(
-            candidate=candidate, 
-            status='ACCEPTED', 
-            resume_type=resume_type, 
-            job_type=job_type if resume_type == 'JOB' else models.Q(job_type__isnull=True)
-        ).exists():
-            raise serializers.ValidationError("Кандидат должен иметь хотя бы одно принятое резюме для указанного типа заявки и работы")
+        # Проверка наличия принятого резюме
+        resume_filter = {
+            'candidate': candidate,
+            'status': 'ACCEPTED',
+            'resume_type': resume_type,
+        }
+
+        if resume_type == 'JOB':
+            resume_filter['job_type'] = job_type
+        else:  # resume_type == 'PRACTICE'
+            resume_filter['job_type__isnull'] = True
+
+        if not Resume.objects.filter(**resume_filter).exists():
+            raise serializers.ValidationError(
+                "Кандидат должен иметь хотя бы одно принятое резюме для указанного типа заявки и работы"
+            )
+
+        # Проверка валидности типов
         if resume_type == 'PRACTICE' and not practice_type:
             raise serializers.ValidationError("Для практики необходимо указать тип практики")
         if resume_type == 'JOB' and practice_type:
@@ -220,11 +231,14 @@ class InterviewCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Для работы необходимо указать тип работы")
         if resume_type == 'PRACTICE' and job_type:
             raise serializers.ValidationError("Тип работы не должен указываться для заявки на практику")
+
+        # Проверка занятости кандидата или сотрудника
         if Interview.objects.filter(
             models.Q(candidate=candidate) | models.Q(employee=employee),
             scheduled_at=scheduled_at
         ).exists():
             raise serializers.ValidationError("Кандидат или сотрудник уже заняты в это время")
+
         return data
 
 class InterviewSerializer(serializers.ModelSerializer):

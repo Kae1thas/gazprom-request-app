@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Offcanvas } from 'react-bootstrap';
 import { AuthContext } from './AuthContext';
-import { Home, Description, CalendarToday, AttachFile, Notifications, CheckCircle, Assignment } from '@mui/icons-material';
+import { Home, Description, CalendarToday, AttachFile, Notifications, CheckCircle, Assignment, Assessment } from '@mui/icons-material';
 import '../index.css';
 
 const Sidebar = () => {
@@ -26,6 +26,7 @@ const Sidebar = () => {
     { path: '/resume/moderator', label: 'Резюме', icon: <Description /> },
     { path: '/interview/moderator', label: 'Собеседования', icon: <CalendarToday /> },
     { path: '/documents/moderator', label: 'Документы', icon: <Assignment /> },
+    { path: '/reporting', label: 'Отчетность', icon: <Assessment /> },
   ];
 
   const menuItems = user?.isStaff ? moderatorMenuItems : candidateMenuItems;

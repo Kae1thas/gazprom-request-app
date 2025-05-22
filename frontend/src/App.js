@@ -22,6 +22,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import FooterAbout from './components/FooterAbout';
 import FooterContact from './components/FooterContact';
+import ModeratorReportingPage from './components/ModeratorReportingPage';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading, interviewLoading } = useContext(AuthContext);
@@ -123,6 +124,14 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <FinalStatusPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reporting"
+            element={
+              <ProtectedRoute>
+                {user && user.isStaff ? <ModeratorReportingPage /> : <Navigate to="/home" />}
               </ProtectedRoute>
             }
           />
