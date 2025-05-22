@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { AuthContext } from './AuthContext';
 import { Navigate } from 'react-router-dom';
 import {
-  Table, TableBody, TableCell, TableHead, TableRow, Tabs, Tab, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography
+  Table, TableBody, TableCell, TableHead, TableRow, Tabs, Tab, TextField, FormControl, InputLabel, Select, MenuItem, Box
 } from '@mui/material';
 import { CSVLink } from 'react-csv';
 import { Download } from '@mui/icons-material';
@@ -344,22 +344,6 @@ const ModeratorReportingPage = () => {
             <MenuItem value="PENDING">Ожидает</MenuItem>
           </Select>
         </FormControl>
-        {/* <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
-          <InputLabel id="document-status-label">Статус документа</InputLabel>
-          <Select
-            labelId="document-status-label"
-            value={documentStatus}
-            onChange={(e) => setDocumentStatus(e.target.value)}
-            label="Статус документа"
-          >
-            <MenuItem value="">Все</MenuItem>
-            <MenuItem value="UPLOADED">Загружен</MenuItem>
-            <MenuItem value="UNDER_REVIEW">На проверке</MenuItem>
-            <MenuItem value="ACCEPTED">Принят</MenuItem>
-            <MenuItem value="REJECTED">Отклонен</MenuItem>
-            <MenuItem value="DELETED">Удалён</MenuItem>
-          </Select>
-        </FormControl> */}
         {activeTab === 'JOB' && (
           <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
             <InputLabel id="job-type-label">Тип работы</InputLabel>
