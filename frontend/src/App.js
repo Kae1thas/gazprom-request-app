@@ -1,57 +1,169 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useContext } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-
-// Компоненты
-import Home from './components/Home';
+import './index.css';
+import { AuthProvider, AuthContext } from './components/AuthContext';
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
+import Footer from './components/Footer';
+import HomePage from './components/HomePage';
+import ModeratorHomePage from './components/ModeratorHomePage';
+import ResumePage from './components/ResumePage';
+import ModeratorResumePage from './components/ModeratorResumePage';
+import InterviewPage from './components/InterviewPage';
+import ModeratorInterviewPage from './components/ModeratorInterviewPage';
+import DocumentsPage from './components/DocumentsPage';
+import NotificationsPage from './components/NotificationsPage';
+import FinalStatusPage from './components/FinalStatusPage';
+import ModeratorDocumentsPage from './components/ModeratorDocumentsPage';
 import Login from './components/Login';
+import Register from './components/Register';
+import FooterAbout from './components/FooterAbout';
+import FooterContact from './components/FooterContact';
+import ModeratorReportingPage from './components/ModeratorReportingPage';
 
-function App() {
-  const [message, setMessage] = useState('Ожидание ответа...');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const ProtectedRoute = ({ children }) => {
+  const { user, loading, interviewLoading } = useContext(AuthContext);
 
-  useEffect(() => {
-    // Получаем данные с бэкенда
-    axios.get('http://localhost:8000/api/ping/')
-      .then(res => {
-        setMessage(res.data.message);  // Устанавливаем ответ сервера
-        setLoading(false);  // Завершаем загрузку
-      })
-      .catch(err => {
-        setError('Ошибка соединения с backend');  // Обработка ошибки
-        setLoading(false);  // Завершаем загрузку
-      });
-  }, []); // Пустой массив зависимостей, чтобы запрос выполнялся только один раз
+  if (loading || interviewLoading) {
+    return (
+      <div className="container mt-5 text-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Загрузка...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return children;
+};
+
+const AppContent = () => {
+  const { user } = useContext(AuthContext);
 
   return (
-    <Router>
-      <div className="container mt-5">
-        {/* Навигация */}
-        <nav className="navbar navbar-expand-lg navbar-light bg-light">
-          <div className="container-fluid">
-            <Link className="navbar-brand" to="/">MyApp</Link>
-            <div className="collapse navbar-collapse" id="navbarNav">
-              <ul className="navbar-nav">
-                <li className="nav-item">
-                  <Link className="nav-link" to="/">Home</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/login">Login</Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </nav>
-
-        {/* Страница с маршрутизацией */}
+    <div className="d-flex flex-column min-vh-100">
+      <Sidebar />
+      <div className={`flex-grow-1 main-content ${!user ? 'no-sidebar' : ''}`}>
+        <Navbar />
         <Routes>
-          <Route path="/" element={<Home message={message} loading={loading} error={error} />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                {user && user.isStaff ? <ModeratorHomePage /> : <HomePage />}
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resume"
+            element={
+              <ProtectedRoute>
+                <ResumePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resume/moderator"
+            element={
+              <ProtectedRoute>
+                <ModeratorResumePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/interview"
+            element={
+              <ProtectedRoute>
+                <InterviewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/interview/moderator"
+            element={
+              <ProtectedRoute>
+                <ModeratorInterviewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <ProtectedRoute>
+                <DocumentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents/moderator"
+            element={
+              <ProtectedRoute>
+                <ModeratorDocumentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/final-status"
+            element={
+              <ProtectedRoute>
+                <FinalStatusPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reporting"
+            element={
+              <ProtectedRoute>
+                {user && user.isStaff ? <ModeratorReportingPage /> : <Navigate to="/home" />}
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/home" />} />
+          <Route path="/about" element={<FooterAbout />} />
+          <Route path="/contact" element={<FooterContact />} />
         </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
       </div>
-    </Router>
+      <Footer className={`footer ${!user ? 'no-sidebar' : ''}`} />
+    </div>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 }
 

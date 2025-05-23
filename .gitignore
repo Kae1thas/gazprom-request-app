@@ -2,4 +2,4 @@ __pycache__/
 *.pyc
 backend/venv/
 node_modules/
-
+backend/project/media/
