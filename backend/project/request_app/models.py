@@ -226,19 +226,6 @@ class DocumentHistory(models.Model):
     def __str__(self):
         return f"История документа {self.document.id} от {self.created_at}"
 
-class Feedback(models.Model):
-    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='feedbacks')
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='feedbacks')
-    message = models.TextField(_('Сообщение'))
-    created_at = models.DateTimeField(_('Дата создания'), auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Обратная связь'
-        verbose_name_plural = 'Обратная связь'
-
-    def __str__(self):
-        return f"Обратная связь {self.id} для документа {self.document.id}"
-
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     message = models.TextField(_('Сообщение'))
