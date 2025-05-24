@@ -51,7 +51,7 @@ class RegisterView(APIView):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            Candidate.objects.create(user=user, has_successful_interview=False)
+            Candidate.objects.create(user=user)
             
             Notification.objects.create(
                 user=user,
@@ -275,13 +275,13 @@ class InterviewViewSet(viewsets.ModelViewSet):
             'CANCELLED': 'Отменено'
         }.get(instance.status, instance.status)
         if instance.status == 'COMPLETED':
-            job_type_display = instance.get_job_type_display() if instance.resume_type == 'JOB' else instance.get_practice_type_display()
-            message = f'Собеседование на {instance.get_resume_type_display()} ({job_type_display}) завершено. Результат: {result_display}.'
+            job_type_display = instance.resume.get_job_type_display() if instance.resume.resume_type == 'JOB' else instance.resume.get_practice_type_display()
+            message = f'Собеседование на {instance.resume.get_resume_type_display()} ({job_type_display}) завершено. Результат: {result_display}.'
             email_template = 'emails/interview_result_success.html' if instance.result == 'SUCCESS' else 'emails/interview_result_failure.html'
             email_subject = 'Результат вашего собеседования'
             email_context = {
                 'user': instance.candidate.user,
-                'resume_type': instance.get_resume_type_display(),
+                'resume_type': instance.resume.get_resume_type_display(),
                 'vacancy_name': job_type_display,
                 'result': result_display,
                 'comment': instance.comment or 'Отсутствует'
@@ -321,10 +321,10 @@ class InterviewViewSet(viewsets.ModelViewSet):
         serializer = InterviewCreateSerializer(data=request.data)
         if serializer.is_valid():
             interview = serializer.save()
-            vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
+            vacancy_name = interview.resume.get_job_type_display() if interview.resume.resume_type == 'JOB' else interview.resume.get_practice_type_display()
             Notification.objects.create(
                 user=interview.candidate.user,
-                message=f'Назначено собеседование на {interview.get_resume_type_display()} ({vacancy_name}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}',
+                message=f'Назначено собеседование на {interview.resume.get_resume_type_display()} ({vacancy_name}) на {interview.scheduled_at.strftime("%d.%m.%Y %H:%M")} с сотрудником {interview.employee.user.last_name} {interview.employee.user.first_name}',
                 type='INTERVIEW',
                 sent_to_email=True
             )
@@ -333,7 +333,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
                 template_name='emails/interview_notification.html',
                 context={
                     'user': interview.candidate.user,
-                    'resume_type': interview.get_resume_type_display(),
+                    'resume_type': interview.resume.get_resume_type_display(),
                     'vacancy_name': vacancy_name,
                     'scheduled_at': interview.scheduled_at.strftime("%d.%m.%Y %H:%M"),
                     'employee_name': f"{interview.employee.user.last_name} {interview.employee.user.first_name}"
@@ -375,20 +375,20 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def create(self, request):
         try:
             candidate = Candidate.objects.get(user=request.user)
-            resume_type = request.data.get('resume_type')
-            if not resume_type:
-                return Response({'error': 'Не указан тип заявки (resume_type)'}, status=status.HTTP_400_BAD_REQUEST)
+            resume_id = request.data.get('resume_id')
+            if not resume_id:
+                return Response({'error': 'Не указан идентификатор резюме (resume_id)'}, status=status.HTTP_400_BAD_REQUEST)
             
             interview = Interview.objects.filter(
                 candidate=candidate, 
                 result='SUCCESS', 
-                resume_type=resume_type
+                resume_id=resume_id
             ).first()
-            logger.info(f"DocumentViewSet.create: Candidate {candidate.id}, resume_type={resume_type}, has_successful_interview={candidate.has_successful_interview}, found interview={interview.id if interview else None}")
+            logger.info(f"DocumentViewSet.create: Candidate {candidate.id}, resume_id={resume_id}, has_successful_interview={candidate.has_successful_interview}, found interview={interview.id if interview else None}")
             logger.info(f"Request data: {request.data}")
             if not interview:
                 return Response(
-                    {'error': f'У вас нет успешного собеседования для {resume_type.lower()}'}, 
+                    {'error': f'У вас нет успешного собеседования для указанного резюме'}, 
                     status=status.HTTP_403_FORBIDDEN
                 )
         except Candidate.DoesNotExist:
@@ -403,10 +403,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     status=document.status,
                     comment='Документ загружен'
                 )
-                vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
+                vacancy_name = interview.resume.get_job_type_display() if interview.resume.resume_type == 'JOB' else interview.resume.get_practice_type_display()
                 Notification.objects.create(
                     user=interview.candidate.user,
-                    message=f'Ваш документ ({document.document_type}) для {interview.get_resume_type_display()} ({vacancy_name}) успешно загружен.',
+                    message=f'Ваш документ ({document.document_type}) для {interview.resume.get_resume_type_display()} ({vacancy_name}) успешно загружен.',
                     type='DOCUMENT',
                     sent_to_email=False
                 )
@@ -435,10 +435,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
             status=document.status,
             comment=document.comment
         )
-        vacancy_name = document.interview.get_job_type_display() if document.interview.resume_type == 'JOB' else document.interview.get_practice_type_display()
+        vacancy_name = document.interview.resume.get_job_type_display() if document.interview.resume.resume_type == 'JOB' else document.interview.resume.get_practice_type_display()
         Notification.objects.create(
             user=document.interview.candidate.user,
-            message=f'Статус вашего документа ({document.document_type}) для {document.interview.get_resume_type_display()} ({vacancy_name}) изменен на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}',
+            message=f'Статус вашего документа ({document.document_type}) для {document.interview.resume.get_resume_type_display()} ({vacancy_name}) изменен на "{document.get_status_display()}". Комментарий: {comment or "Отсутствует"}',
             type='DOCUMENT',
             sent_to_email=True
         )
@@ -448,7 +448,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             context={
                 'user': document.interview.candidate.user,
                 'document_type': document.document_type,
-                'resume_type': document.interview.get_resume_type_display(),
+                'resume_type': document.interview.resume.get_resume_type_display(),
                 'vacancy_name': vacancy_name,
                 'status': document.get_status_display(),
                 'comment': comment or 'Отсутствует'
@@ -470,8 +470,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         missing_types = request.data.get('missing_types', [])
         try:
             interview = Interview.objects.get(id=interview_id)
-            vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
-            message = f'Необходимо загрузить следующие документы для {interview.get_resume_type_display()} ({vacancy_name}): {", ".join(missing_types)}.'
+            vacancy_name = interview.resume.get_job_type_display() if interview.resume.resume_type == 'JOB' else interview.resume.get_practice_type_display()
+            message = f'Необходимо загрузить следующие документы для {interview.resume.get_resume_type_display()} ({vacancy_name}): {", ".join(missing_types)}.'
             Notification.objects.create(
                 user=interview.candidate.user,
                 message=message,
@@ -497,13 +497,11 @@ class DocumentViewSet(viewsets.ModelViewSet):
         try:
             interview = Interview.objects.get(id=interview_id)
             candidate = interview.candidate
-            candidate.has_successful_interview = False
-            candidate.save()
             interview.result = 'FAILURE'
             interview.save()
             Document.objects.filter(interview=interview).delete()
-            vacancy_name = interview.get_job_type_display() if interview.resume_type == 'JOB' else interview.get_practice_type_display()
-            message = f'Ваша кандидатура на {interview.get_resume_type_display()} ({vacancy_name}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
+            vacancy_name = interview.resume.get_job_type_display() if interview.resume.resume_type == 'JOB' else interview.resume.get_practice_type_display()
+            message = f'Ваша кандидатура на {interview.resume.get_resume_type_display()} ({vacancy_name}) была окончательно отклонена. Для повторной попытки необходимо пройти собеседование заново.'
             Notification.objects.create(
                 user=candidate.user,
                 message=message,
@@ -515,7 +513,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 template_name='emails/hire_status.html',
                 context={
                     'user': candidate.user,
-                    'application_type': interview.get_resume_type_display().lower(),
+                    'application_type': interview.resume.get_resume_type_display().lower(),
                     'vacancy_name': vacancy_name,
                     'status': 'Отклонено',
                     'message': 'Для повторной попытки необходимо пройти собеседование заново.'
@@ -535,10 +533,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
             interview = Interview.objects.get(id=interview_id, result='SUCCESS')
             documents = Document.objects.filter(interview=interview)
             candidate = interview.candidate
-            resume_type = interview.resume_type
+            resume = interview.resume
             is_male = candidate.user.gender == 'MALE'
 
-            if resume_type == 'JOB':
+            if resume.resume_type == 'JOB':
                 required_types = [
                     'Паспорт',
                     'Аттестат/Диплом',
@@ -557,7 +555,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     'Аттестат/Диплом',
                     'Согласие на обработку персональных данных',
                     'Договор о практике',
-                    'Заявление на практике'
+                    'Заявление на практику'
                 ]
 
             uploaded_types = [doc.document_type for doc in documents]
@@ -567,8 +565,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
             if not all(doc.status == 'ACCEPTED' for doc in documents if doc.document_type in required_types):
                 return Response({'error': 'Все обязательные документы должны быть приняты'}, status=status.HTTP_400_BAD_REQUEST)
 
-            if resume_type == 'JOB' and not interview.job_type:
-                return Response({'error': 'Тип работы не указан для собеседования'}, status=status.HTTP_400_BAD_REQUEST)
+            if resume.resume_type == 'JOB' and not resume.job_type:
+                return Response({'error': 'Тип работы не указан для резюме'}, status=status.HTTP_400_BAD_REQUEST)
 
             hire_date = timezone.now().date()
             if hire_date_str:
@@ -577,8 +575,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 except ValueError:
                     return Response({'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД'}, status=status.HTTP_400_BAD_REQUEST)
 
-            vacancy_name = interview.get_job_type_display() if resume_type == 'JOB' else interview.get_practice_type_display()
-            if resume_type == 'JOB':
+            vacancy_name = resume.get_job_type_display() if resume.resume_type == 'JOB' else resume.get_practice_type_display()
+            if resume.resume_type == 'JOB':
                 try:
                     Employee.objects.get(user=candidate.user)
                     return Response({'error': 'Пользователь уже является сотрудником'}, status=status.HTTP_400_BAD_REQUEST)
@@ -604,7 +602,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 practice_type_display = vacancy_name or 'Практика'
                 message = custom_message or f'Поздравляем! Ваш прием на {practice_type_display} практику назначен на {hire_date.strftime("%d.%m.%Y")}.'
                 email_status = f'Приняты на {practice_type_display} практику'
-                email_template = 'emails/hire_confirmation.html'
+                email_template = 'банки/hire_confirmation.html'
                 email_context = {
                     'user': candidate.user,
                     'application_type': 'практику',
@@ -613,8 +611,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     'hire_date': hire_date.strftime("%d.%m.%Y")
                 }
 
-            candidate.has_successful_interview = False
-            candidate.save()
             Notification.objects.create(
                 user=candidate.user,
                 message=message,
@@ -627,7 +623,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 context=email_context,
                 recipient_list=[candidate.user.email]
             )
-            return Response({'message': f'Кандидат успешно принят на {resume_type.lower()}'}, status=status.HTTP_200_OK)
+            return Response({'message': f'Кандидат успешно принят на {resume.resume_type.lower()}'}, status=status.HTTP_200_OK)
         except Interview.DoesNotExist:
             return Response({'error': 'Собеседование не найдено'}, status=status.HTTP_404_NOT_FOUND)
 

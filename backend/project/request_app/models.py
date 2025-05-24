@@ -124,8 +124,6 @@ class User(AbstractUser):
 
 class Candidate(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='candidate_profile')
-    date_of_birth = models.DateField(_('Дата рождения'), null=True, blank=True)
-    has_successful_interview = models.BooleanField(_('Успешное собеседование'), default=False)
 
     class Meta:
         verbose_name = 'Кандидат'
@@ -133,6 +131,10 @@ class Candidate(models.Model):
 
     def __str__(self):
         return self.user.__str__()
+
+    @property
+    def has_successful_interview(self):
+        return self.interviews.filter(result='SUCCESS').exists()
 
 class Employee(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='employee_profile')
@@ -168,14 +170,12 @@ class Resume(models.Model):
 
 class Interview(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='interviews')
+    resume = models.ForeignKey(Resume, on_delete=models.CASCADE, related_name='interviews', null=True)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='interviews')
     scheduled_at = models.DateTimeField(_('Запланировано на'))
     status = models.CharField(_('Статус'), max_length=20, choices=InterviewStatusChoices.choices, default=InterviewStatusChoices.SCHEDULED)
     result = models.CharField(_('Результат'), max_length=20, choices=InterviewResultChoices.choices, default=InterviewResultChoices.PENDING)
     comment = models.TextField(blank=True)
-    resume_type = models.CharField(_('Тип заявки'), max_length=20, choices=ResumeTypeChoices.choices, default=ResumeTypeChoices.JOB)
-    practice_type = models.CharField(_('Тип практики'), max_length=20, choices=PracticeTypeChoices.choices, blank=True, null=True)
-    job_type = models.CharField(_('Тип работы'), max_length=20, choices=JobTypeChoices.choices, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Собеседование'
@@ -187,15 +187,6 @@ class Interview(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.result == 'SUCCESS':
-            self.candidate.has_successful_interview = True
-            self.candidate.save()
-        elif self.result in ['FAILURE', 'PENDING']:
-            has_other_success = Interview.objects.filter(
-                candidate=self.candidate, result='SUCCESS', resume_type=self.resume_type
-            ).exclude(id=self.id).exists()
-            self.candidate.has_successful_interview = has_other_success
-            self.candidate.save()
 
 class Document(models.Model):
     interview = models.ForeignKey(Interview, on_delete=models.CASCADE, related_name='documents')

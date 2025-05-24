@@ -19,7 +19,6 @@ const Register = () => {
       console.error('Ошибка регистрации:', err.response?.data);
       const errorMessage = err.response?.data?.email ||
                           err.response?.data?.gender ||
-                          err.response?.data?.date_of_birth ||
                           'Ошибка регистрации';
       setError(errorMessage);
     }
@@ -101,26 +100,6 @@ const Register = () => {
               <option value="FEMALE">Женский</option>
             </select>
             {errors.gender && <div className="invalid-feedback">{errors.gender.message}</div>}
-          </div>
-          <div className="mb-3">
-            <label htmlFor="date_of_birth" className="form-label">Дата рождения</label>
-            <input
-              type="date"
-              className={`form-control ${errors.date_of_birth ? 'is-invalid' : ''}`}
-              id="date_of_birth"
-              {...register('date_of_birth', {
-                validate: (value) => {
-                  if (!value) return true;
-                  const today = new Date();
-                  const birthDate = new Date(value);
-                  if (birthDate > today) {
-                    return 'Дата рождения не может быть в будущем';
-                  }
-                  return true;
-                }
-              })}
-            />
-            {errors.date_of_birth && <div className="invalid-feedback">{errors.date_of_birth.message}</div>}
           </div>
           <button type="submit" className="btn btn-primary w-100" title="Зарегистрироваться">Зарегистрироваться</button>
         </form>

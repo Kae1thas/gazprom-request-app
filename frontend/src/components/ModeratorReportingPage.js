@@ -71,8 +71,10 @@ const ModeratorReportingPage = () => {
         setInterviews(interviewsResponse.data);
         setDocuments(documentsResponse.data);
 
-        const hasJobData = resumesResponse.data.some((r) => r.resume_type === 'JOB') || interviewsResponse.data.some((i) => i.resume_type === 'JOB');
-        const hasPracticeData = resumesResponse.data.some((r) => r.resume_type === 'PRACTICE') || interviewsResponse.data.some((i) => i.resume_type === 'PRACTICE');
+        const hasJobData = resumesResponse.data.some((r) => r.resume_type === 'JOB') || 
+                         interviewsResponse.data.some((i) => i.resume?.resume_type === 'JOB');
+        const hasPracticeData = resumesResponse.data.some((r) => r.resume_type === 'PRACTICE') || 
+                              interviewsResponse.data.some((i) => i.resume?.resume_type === 'PRACTICE');
         if (hasJobData) {
           setActiveTab('JOB');
         } else if (hasPracticeData) {
@@ -80,7 +82,7 @@ const ModeratorReportingPage = () => {
         }
       } catch (err) {
         setError(err.response?.data?.error || 'Не удалось загрузить данные');
-        toast.error(error);
+        toast.error(err.response?.data?.error || 'Не удалось загрузить данные');
       }
     };
     fetchData();
@@ -88,7 +90,7 @@ const ModeratorReportingPage = () => {
 
   const filteredData = useMemo(() => {
     let filteredResumes = resumes.filter((resume) => resume.resume_type === activeTab);
-    let filteredInterviews = interviews.filter((interview) => interview.resume_type === activeTab);
+    let filteredInterviews = interviews.filter((interview) => interview.resume?.resume_type === activeTab);
     let filteredDocuments = documents;
 
     if (searchQuery) {
@@ -137,12 +139,12 @@ const ModeratorReportingPage = () => {
 
     if (activeTab === 'JOB' && jobType) {
       filteredResumes = filteredResumes.filter((resume) => resume.job_type === jobType);
-      filteredInterviews = filteredInterviews.filter((interview) => interview.job_type === jobType);
-      filteredDocuments = filteredDocuments.filter((doc) => doc.interview?.job_type === jobType);
+      filteredInterviews = filteredInterviews.filter((interview) => interview.resume?.job_type === jobType);
+      filteredDocuments = filteredDocuments.filter((doc) => doc.interview?.resume?.job_type === jobType);
     } else if (activeTab === 'PRACTICE' && practiceType) {
       filteredResumes = filteredResumes.filter((resume) => resume.practice_type === practiceType);
-      filteredInterviews = filteredInterviews.filter((interview) => interview.practice_type === practiceType);
-      filteredDocuments = filteredDocuments.filter((doc) => doc.interview?.practice_type === practiceType);
+      filteredInterviews = filteredInterviews.filter((interview) => interview.resume?.practice_type === practiceType);
+      filteredDocuments = filteredDocuments.filter((doc) => doc.interview?.resume?.practice_type === practiceType);
     }
 
     return { filteredResumes, filteredInterviews, filteredDocuments };
@@ -154,8 +156,12 @@ const ModeratorReportingPage = () => {
 
     filteredResumes.forEach((resume) => {
       const candidateName = `${resume.candidate?.user?.last_name || ''} ${resume.candidate?.user?.first_name || ''} ${resume.candidate?.user?.patronymic || ''}`.trim();
-      const interview = filteredInterviews.find((i) => i.candidate?.id === resume.candidate?.id && i.resume_type === resume.resume_type);
-      const relatedDocs = filteredDocuments.filter((doc) => doc.interview?.candidate?.id === resume.candidate?.id && doc.interview?.resume_type === resume.resume_type);
+      const interview = filteredInterviews.find(
+        (i) => i.candidate?.id === resume.candidate?.id && i.resume?.resume_type === resume.resume_type
+      );
+      const relatedDocs = filteredDocuments.filter(
+        (doc) => doc.interview?.candidate?.id === resume.candidate?.id && doc.interview?.resume?.resume_type === resume.resume_type
+      );
 
       data.push({
         candidate: candidateName,
@@ -278,8 +284,8 @@ const ModeratorReportingPage = () => {
     return <Box className="container mt-5 alert alert-danger">{error}</Box>;
   }
 
-  const hasJobData = resumes.some((r) => r.resume_type === 'JOB') || interviews.some((i) => i.resume_type === 'JOB');
-  const hasPracticeData = resumes.some((r) => r.resume_type === 'PRACTICE') || interviews.some((i) => i.resume_type === 'PRACTICE');
+  const hasJobData = resumes.some((r) => r.resume_type === 'JOB') || interviews.some((i) => i.resume?.resume_type === 'JOB');
+  const hasPracticeData = resumes.some((r) => r.resume_type === 'PRACTICE') || interviews.some((i) => i.resume?.resume_type === 'PRACTICE');
 
   return (
     <Box className="container mx-auto mt-5 pl-64 pt-20">
@@ -431,10 +437,10 @@ const ModeratorReportingPage = () => {
                     <TableBody>
                       {filteredData.filteredResumes.map((resume) => {
                         const interview = filteredData.filteredInterviews.find(
-                          (i) => i.candidate?.id === resume.candidate?.id && i.resume_type === resume.resume_type
+                          (i) => i.candidate?.id === resume.candidate?.id && i.resume?.resume_type === resume.resume_type
                         );
                         const relatedDocs = filteredData.filteredDocuments.filter(
-                          (doc) => doc.interview?.candidate?.id === resume.candidate?.id && doc.interview?.resume_type === resume.resume_type
+                          (doc) => doc.interview?.candidate?.id === resume.candidate?.id && doc.interview?.resume?.resume_type === resume.resume_type
                         );
                         return (
                           <TableRow key={resume.id}>

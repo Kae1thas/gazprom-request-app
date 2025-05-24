@@ -5,39 +5,6 @@ import { Modal, Box, Typography, Button, TextField } from '@mui/material';
 import { FaEye } from 'react-icons/fa';
 import ReactSelect from 'react-select';
 
-const resumeTypeOptions = [
-  { value: 'JOB', label: 'Работа' },
-  { value: 'PRACTICE', label: 'Практика' },
-];
-
-const practiceTypeOptions = [
-  { value: 'PRE_DIPLOMA', label: 'Преддипломная' },
-  { value: 'PRODUCTION', label: 'Производственная' },
-  { value: 'EDUCATIONAL', label: 'Учебная' },
-];
-
-const jobTypeOptions = [
-  { value: 'PROGRAMMER', label: 'Инженер-программист' },
-  { value: 'METHODOLOGIST', label: 'Методолог' },
-  { value: 'SPECIALIST', label: 'Специалист' },
-];
-
-const practiceTypeDisplayMap = {
-  PRE_DIPLOMA: 'Преддипломная',
-  PRODUCTION: 'Производственная',
-  EDUCATIONAL: 'Учебная',
-  '': '-',
-  null: '-'
-};
-
-const jobTypeDisplayMap = {
-  PROGRAMMER: 'Инженер-программист',
-  METHODOLOGIST: 'Методолог',
-  SPECIALIST: 'Специалист',
-  '': '-',
-  null: '-'
-};
-
 const modalStyle = {
   position: 'absolute',
   top: '50%',
@@ -56,11 +23,10 @@ const InterviewModal = ({ mode, interview, interviews, setInterviews, isModerato
   const [statusComment, setStatusComment] = useState('');
   const [candidates, setCandidates] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [resumes, setResumes] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [selectedResumeType, setSelectedResumeType] = useState(null);
-  const [selectedPracticeType, setSelectedPracticeType] = useState(null);
-  const [selectedJobType, setSelectedJobType] = useState(null);
+  const [selectedResume, setSelectedResume] = useState(null);
   const [scheduledAt, setScheduledAt] = useState('');
 
   useEffect(() => {
@@ -94,6 +60,29 @@ const InterviewModal = ({ mode, interview, interviews, setInterviews, isModerato
     }
   }, [open, mode, isModerator]);
 
+  useEffect(() => {
+    if (mode === 'create' && selectedCandidate && isModerator) {
+      const token = localStorage.getItem('token');
+      const fetchResumes = async () => {
+        try {
+          const response = await axios.get('http://localhost:8000/api/resumes/', {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { candidate: selectedCandidate.value },
+          });
+          setResumes(response.data.filter(r => r.status === 'ACCEPTED').map((r) => ({
+            value: r.id,
+            label: `${r.resume_type === 'JOB' ? 'Работа' : 'Практика'} (${r.resume_type === 'JOB' ? r.job_type_display : r.practice_type_display})`,
+          })));
+        } catch (err) {
+          const errorMsg = err.response?.data?.error || 'Не удалось загрузить резюме';
+          setError(errorMsg);
+          toast.error(errorMsg);
+        }
+      };
+      fetchResumes();
+    }
+  }, [selectedCandidate, mode, isModerator]);
+
   const handleOpen = () => setOpen(true);
   const handleClose = () => {
     setOpen(false);
@@ -101,29 +90,15 @@ const InterviewModal = ({ mode, interview, interviews, setInterviews, isModerato
     setStatusComment('');
     setSelectedCandidate(null);
     setSelectedEmployee(null);
-    setSelectedResumeType(null);
-    setSelectedPracticeType(null);
-    setSelectedJobType(null);
+    setSelectedResume(null);
     setScheduledAt('');
   };
 
   const handleCreateInterview = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
-    if (!selectedCandidate || !selectedEmployee || !scheduledAt || !selectedResumeType) {
+    if (!selectedCandidate || !selectedEmployee || !scheduledAt || !selectedResume) {
       const errorMsg = 'Заполните все обязательные поля';
-      setError(errorMsg);
-      toast.error(errorMsg);
-      return;
-    }
-    if (selectedResumeType?.value === 'PRACTICE' && !selectedPracticeType) {
-      const errorMsg = 'Выберите тип практики';
-      setError(errorMsg);
-      toast.error(errorMsg);
-      return;
-    }
-    if (selectedResumeType?.value === 'JOB' && !selectedJobType) {
-      const errorMsg = 'Выберите тип работы';
       setError(errorMsg);
       toast.error(errorMsg);
       return;
@@ -132,10 +107,8 @@ const InterviewModal = ({ mode, interview, interviews, setInterviews, isModerato
     const payload = {
       candidate: selectedCandidate.value,
       employee: selectedEmployee.value,
+      resume: selectedResume.value,
       scheduled_at: new Date(scheduledAt).toISOString(),
-      resume_type: selectedResumeType.value,
-      ...(selectedResumeType?.value === 'PRACTICE' && { practice_type: selectedPracticeType?.value }),
-      ...(selectedResumeType?.value === 'JOB' && { job_type: selectedJobType?.value }),
     };
 
     try {
@@ -153,9 +126,7 @@ const InterviewModal = ({ mode, interview, interviews, setInterviews, isModerato
         err.response?.data?.scheduled_at ||
         err.response?.data?.candidate ||
         err.response?.data?.employee ||
-        err.response?.data?.resume_type ||
-        err.response?.data?.practice_type ||
-        err.response?.data?.job_type ||
+        err.response?.data?.resume ||
         'Ошибка при назначении собеседования'
       );
       const displayMsg = Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg;
@@ -207,12 +178,12 @@ const InterviewModal = ({ mode, interview, interviews, setInterviews, isModerato
             Сотрудник: {`${interview.employee?.user.last_name || ''} ${interview.employee?.user.first_name || ''} ${interview.employee?.user.patronymic || ''}`.trim()}
           </Typography>
           <Typography><strong>Должность:</strong> {interview.employee?.position || 'Не указана'}</Typography>
-          <Typography><strong>Тип заявки:</strong> {interview.resume_type === 'JOB' ? 'Работа' : 'Практика'}</Typography>
-          {interview.resume_type === 'PRACTICE' && (
-            <Typography><strong>Тип практики:</strong> {interview.practice_type_display || practiceTypeDisplayMap[interview.practice_type] || '-'}</Typography>
+          <Typography><strong>Тип заявки:</strong> {interview.resume?.resume_type === 'JOB' ? 'Работа' : 'Практика'}</Typography>
+          {interview.resume?.resume_type === 'PRACTICE' && (
+            <Typography><strong>Тип практики:</strong> {interview.resume?.practice_type_display || '-'}</Typography>
           )}
-          {interview.resume_type === 'JOB' && (
-            <Typography><strong>Тип работы:</strong> {interview.job_type_display || jobTypeDisplayMap[interview.job_type] || '-'}</Typography>
+          {interview.resume?.resume_type === 'JOB' && (
+            <Typography><strong>Тип работы:</strong> {interview.resume?.job_type_display || '-'}</Typography>
           )}
           <Typography><strong>Дата и время:</strong> {new Date(interview.scheduled_at).toLocaleString('ru-RU', {
             day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -303,46 +274,16 @@ const InterviewModal = ({ mode, interview, interviews, setInterviews, isModerato
           />
         </div>
         <div className="mb-3">
-          <label htmlFor="resumeTypeSelect" className="form-label">Тип заявки</label>
+          <label htmlFor="resumeSelect" className="form-label">Резюме</label>
           <ReactSelect
-            id="resumeTypeSelect"
-            options={resumeTypeOptions}
-            value={selectedResumeType}
-            onChange={(option) => {
-              setSelectedResumeType(option);
-              if (option?.value !== 'PRACTICE') setSelectedPracticeType(null);
-              if (option?.value !== 'JOB') setSelectedJobType(null);
-            }}
-            placeholder="Выберите тип заявки"
+            id="resumeSelect"
+            options={resumes}
+            value={selectedResume}
+            onChange={setSelectedResume}
+            placeholder="Выберите резюме"
             isClearable
           />
         </div>
-        {selectedResumeType?.value === 'PRACTICE' && (
-          <div className="mb-3">
-            <label htmlFor="practiceTypeSelect" className="form-label">Тип практики</label>
-            <ReactSelect
-              id="practiceTypeSelect"
-              options={practiceTypeOptions}
-              value={selectedPracticeType}
-              onChange={setSelectedPracticeType}
-              placeholder="Выберите тип практики"
-              isClearable
-            />
-          </div>
-        )}
-        {selectedResumeType?.value === 'JOB' && (
-          <div className="mb-3">
-            <label htmlFor="jobTypeSelect" className="form-label">Тип работы</label>
-            <ReactSelect
-              id="jobTypeSelect"
-              options={jobTypeOptions}
-              value={selectedJobType}
-              onChange={setSelectedJobType}
-              placeholder="Выберите тип работы"
-              isClearable
-            />
-          </div>
-        )}
         <div className="mb-3">
           <label htmlFor="scheduledAt" className="form-label">Дата и время</label>
           <input

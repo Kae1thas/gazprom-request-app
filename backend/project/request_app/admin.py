@@ -18,8 +18,7 @@ class UserAdmin(UserAdmin):
 
 @admin.register(Candidate)
 class CandidateAdmin(admin.ModelAdmin):
-    list_display = ('user', 'user_email', 'date_of_birth', 'has_successful_interview')
-    list_filter = ('has_successful_interview',)
+    list_display = ('user', 'user_email')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'user__patronymic', 'user__email')
 
     def user_email(self, obj):
@@ -45,8 +44,8 @@ class ResumeAdmin(admin.ModelAdmin):
 
 @admin.register(Interview)
 class InterviewAdmin(admin.ModelAdmin):
-    list_display = ('id', 'candidate', 'employee', 'resume_type', 'practice_type', 'job_type', 'scheduled_at', 'status', 'result')
-    list_filter = ('status', 'result', 'scheduled_at', 'resume_type', 'practice_type', 'job_type')
+    list_display = ('id', 'candidate', 'employee', 'scheduled_at', 'status', 'result')
+    list_filter = ('status', 'result', 'scheduled_at')
     search_fields = ('candidate__user__username', 'candidate__user__first_name', 'candidate__user__last_name', 'employee__user__username')
 
 @admin.register(Document)

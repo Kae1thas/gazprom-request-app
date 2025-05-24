@@ -14,6 +14,14 @@ const practiceTypeDisplayMap = {
   null: '-'
 };
 
+const jobTypeDisplayMap = {
+  PROGRAMMER: 'Инженер-программист',
+  METHODOLOGIST: 'Методолог',
+  SPECIALIST: 'Специалист',
+  '': '-',
+  null: '-'
+};
+
 const InterviewPage = () => {
   const { user, loading } = useContext(AuthContext);
   const [interviews, setInterviews] = useState([]);
@@ -41,8 +49,8 @@ const InterviewPage = () => {
         });
         setInterviews(response.data);
 
-        const hasJobInterviews = response.data.some((interview) => interview.resume_type === 'JOB');
-        const hasPracticeInterviews = response.data.some((interview) => interview.resume_type === 'PRACTICE');
+        const hasJobInterviews = response.data.some((interview) => interview.resume?.resume_type === 'JOB');
+        const hasPracticeInterviews = response.data.some((interview) => interview.resume?.resume_type === 'PRACTICE');
         if (hasJobInterviews) {
           setActiveTab('JOB');
         } else if (hasPracticeInterviews) {
@@ -59,8 +67,8 @@ const InterviewPage = () => {
 
   const renderInterviewTable = (interviewType) => {
     const interviewsToShow = interviewType === 'JOB'
-      ? interviews.filter((interview) => interview.resume_type === 'JOB')
-      : interviews.filter((interview) => interview.resume_type === 'PRACTICE');
+      ? interviews.filter((interview) => interview.resume?.resume_type === 'JOB')
+      : interviews.filter((interview) => interview.resume?.resume_type === 'PRACTICE');
     const isPractice = interviewType === 'PRACTICE';
 
     return (
@@ -103,8 +111,8 @@ const InterviewPage = () => {
                     </TableCell>
                     <TableCell>
                       {isPractice
-                        ? interview.practice_type_display || practiceTypeDisplayMap[interview.practice_type] || '-'
-                        : interview.job_type_display || '-'}
+                        ? interview.resume?.practice_type_display || practiceTypeDisplayMap[interview.resume?.practice_type] || '-'
+                        : interview.resume?.job_type_display || jobTypeDisplayMap[interview.resume?.job_type] || '-'}
                     </TableCell>
                     <TableCell>
                       {new Date(interview.scheduled_at).toLocaleString('ru-RU', {
@@ -168,13 +176,13 @@ const InterviewPage = () => {
     return <Navigate to="/login" />;
   }
 
-  const hasJobInterviews = interviews.some((interview) => interview.resume_type === 'JOB');
-  const hasPracticeInterviews = interviews.some((interview) => interview.resume_type === 'PRACTICE');
+  const hasJobInterviews = interviews.some((interview) => interview.resume?.resume_type === 'JOB');
+  const hasPracticeInterviews = interviews.some((interview) => interview.resume?.resume_type === 'PRACTICE');
 
   return (
     <Box className="container mt-5">
-    <h1 className="mb-4">Мои собеседования</h1>
-    <p>Просматривайте запланированные и прошедшие собеседования для эффективного контроля расписания.</p>
+      <h1 className="mb-4">Мои собеседования</h1>
+      <p>Просматривайте запланированные и прошедшие собеседования для эффективного контроля расписания.</p>
       {error && (
         <div className="alert alert-danger" mb={2}>
           {error}

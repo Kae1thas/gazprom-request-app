@@ -17,14 +17,6 @@ const ModeratorInterviewPage = () => {
   const [sortBy, setSortBy] = useState('id');
   const [sortOrder, setSortOrder] = useState('asc');
 
-  const jobTypeOrder = {
-    'PROGRAMMER': 1,
-    'METHODOLOGIST': 2,
-    'SPECIALIST': 3,
-    '': 0,
-    null: 0
-  };
-
   useEffect(() => {
     if (loading) return;
 
@@ -46,8 +38,8 @@ const ModeratorInterviewPage = () => {
         });
         setInterviews(response.data);
 
-        const hasJobInterviews = response.data.some((interview) => interview.resume_type === 'JOB');
-        const hasPracticeInterviews = response.data.some((interview) => interview.resume_type === 'PRACTICE');
+        const hasJobInterviews = response.data.some((interview) => interview.resume?.resume_type === 'JOB');
+        const hasPracticeInterviews = response.data.some((interview) => interview.resume?.resume_type === 'PRACTICE');
         if (hasJobInterviews) {
           setActiveTab('JOB');
         } else if (hasPracticeInterviews) {
@@ -68,8 +60,8 @@ const ModeratorInterviewPage = () => {
 
   const filteredInterviews = useMemo(() => {
     let result = activeTab === 'JOB'
-      ? interviews.filter((interview) => interview.resume_type === 'JOB')
-      : interviews.filter((interview) => interview.resume_type === 'PRACTICE');
+      ? interviews.filter((interview) => interview.resume?.resume_type === 'JOB')
+      : interviews.filter((interview) => interview.resume?.resume_type === 'PRACTICE');
 
     if (searchQuery) {
       result = result.filter((interview) =>
@@ -90,10 +82,6 @@ const ModeratorInterviewPage = () => {
         const dateA = new Date(a.scheduled_at || '1970-01-01');
         const dateB = new Date(b.scheduled_at || '1970-01-01');
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-      } else if (sortBy === 'job_type' && activeTab === 'JOB') {
-        const jobA = jobTypeOrder[a.job_type || ''] || 0;
-        const jobB = jobTypeOrder[b.job_type || ''] || 0;
-        return sortOrder === 'asc' ? jobA - jobB : jobB - jobA;
       }
       return 0;
     });
@@ -145,8 +133,8 @@ const ModeratorInterviewPage = () => {
                     </TableCell>
                     <TableCell>
                       {isPractice
-                        ? interview.practice_type_display || '-'
-                        : interview.job_type_display || '-'}
+                        ? interview.resume?.practice_type_display || '-'
+                        : interview.resume?.job_type_display || '-'}
                     </TableCell>
                     <TableCell>
                       {new Date(interview.scheduled_at).toLocaleString('ru-RU', {
@@ -208,57 +196,51 @@ const ModeratorInterviewPage = () => {
     );
   }
 
-  if (!user) {
+  if (!user || !user.isStaff) {
     return <Navigate to="/login" />;
   }
 
-  if (!user.isStaff) {
-    return (
-      <div className="container mt-5 alert alert-danger">
-        {error}
-      </div>
-    );
-  }
-
-  const hasJobInterviews = interviews.some((interview) => interview.resume_type === 'JOB');
-  const hasPracticeInterviews = interviews.some((interview) => interview.resume_type === 'PRACTICE');
+  const hasJobInterviews = interviews.some((interview) => interview.resume?.resume_type === 'JOB');
+  const hasPracticeInterviews = interviews.some((interview) => interview.resume?.resume_type === 'PRACTICE');
 
   return (
-    <Box className="container mt-5 pl-64 pt-20">
+    <Box className="container mt-5">
       <h1 className="mb-4">Управление собеседованиями</h1>
+      <p>Назначайте и управляйте собеседованиями кандидатов.</p>
       {error && (
         <div className="alert alert-danger" mb={2}>
           {error}
         </div>
       )}
-
-      <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
+      <InterviewModal
+        mode="create"
+        interviews={interviews}
+        setInterviews={handleUpdateInterviews}
+        isModerator={true}
+      />
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
         <TextField
           label="Поиск по имени кандидата"
           variant="outlined"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ flex: 1, minWidth: 200 }}
-          size="small"
+          sx={{ flex: 1 }}
         />
-        <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
-          <InputLabel id="sort-by-label">Сортировать по</InputLabel>
+        <FormControl sx={{ minWidth: 120 }}>
+          <InputLabel>Сортировка</InputLabel>
           <Select
-            labelId="sort-by-label"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            label="Сортировать по"
+            label="Сортировка"
           >
-            <MenuItem value="id">ID собеседования</MenuItem>
-            <MenuItem value="name">Имя кандидата</MenuItem>
-            <MenuItem value="date">Дата собеседования</MenuItem>
-            {activeTab === 'JOB' && <MenuItem value="job_type">Тип работы</MenuItem>}
+            <MenuItem value="id">По ID</MenuItem>
+            <MenuItem value="name">По имени</MenuItem>
+            <MenuItem value="date">По дате</MenuItem>
           </Select>
         </FormControl>
-        <FormControl variant="outlined" size="small" sx={{ width: 200 }}>
-          <InputLabel id="sort-order-label">Порядок</InputLabel>
+        <FormControl sx={{ minWidth: 120 }}>
+          <InputLabel>Порядок</InputLabel>
           <Select
-            labelId="sort-order-label"
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
             label="Порядок"
@@ -268,14 +250,6 @@ const ModeratorInterviewPage = () => {
           </Select>
         </FormControl>
       </Box>
-
-      <InterviewModal
-        mode="create"
-        interviews={interviews}
-        setInterviews={handleUpdateInterviews}
-        isModerator={true}
-      />
-
       {hasJobInterviews || hasPracticeInterviews ? (
         <>
           <Tabs

@@ -24,10 +24,14 @@ class UserSerializer(serializers.ModelSerializer):
 
 class CandidateSerializer(serializers.ModelSerializer):
     user = UserSerializer()
+    has_successful_interview = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
-        fields = ['id', 'user', 'date_of_birth', 'has_successful_interview']
+        fields = ['id', 'user', 'has_successful_interview']
+
+    def get_has_successful_interview(self, obj):
+        return obj.has_successful_interview
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')
@@ -183,13 +187,11 @@ class ResumeEditSerializer(serializers.ModelSerializer):
 class InterviewCreateSerializer(serializers.ModelSerializer):
     candidate = serializers.PrimaryKeyRelatedField(queryset=Candidate.objects.all())
     employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all())
-    resume_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['JOB', 'PRACTICE']], required=True)
-    practice_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['PRE_DIPLOMA', 'PRODUCTION', 'EDUCATIONAL']], required=False, allow_null=True)
-    job_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['PROGRAMMER', 'METHODOLOGIST', 'SPECIALIST']], required=False)
+    resume = serializers.PrimaryKeyRelatedField(queryset=Resume.objects.all())
 
     class Meta:
         model = Interview
-        fields = ['candidate', 'employee', 'scheduled_at', 'resume_type', 'practice_type', 'job_type']
+        fields = ['candidate', 'employee', 'resume', 'scheduled_at']
 
     def validate_scheduled_at(self, value):
         from django.utils import timezone
@@ -200,37 +202,14 @@ class InterviewCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         candidate = data['candidate']
         employee = data['employee']
+        resume = data['resume']
         scheduled_at = data['scheduled_at']
-        resume_type = data['resume_type']
-        practice_type = data.get('practice_type')
-        job_type = data.get('job_type')
 
-        # Проверка наличия принятого резюме
-        resume_filter = {
-            'candidate': candidate,
-            'status': 'ACCEPTED',
-            'resume_type': resume_type,
-        }
-
-        if resume_type == 'JOB':
-            resume_filter['job_type'] = job_type
-        else:  # resume_type == 'PRACTICE'
-            resume_filter['job_type__isnull'] = True
-
-        if not Resume.objects.filter(**resume_filter).exists():
-            raise serializers.ValidationError(
-                "Кандидат должен иметь хотя бы одно принятое резюме для указанного типа заявки и работы"
-            )
-
-        # Проверка валидности типов
-        if resume_type == 'PRACTICE' and not practice_type:
-            raise serializers.ValidationError("Для практики необходимо указать тип практики")
-        if resume_type == 'JOB' and practice_type:
-            raise serializers.ValidationError("Тип практики не должен указываться для заявки на работу")
-        if resume_type == 'JOB' and not job_type:
-            raise serializers.ValidationError("Для работы необходимо указать тип работы")
-        if resume_type == 'PRACTICE' and job_type:
-            raise serializers.ValidationError("Тип работы не должен указываться для заявки на практику")
+        # Проверка, что резюме принадлежит кандидату и имеет статус ACCEPTED
+        if resume.candidate != candidate:
+            raise serializers.ValidationError("Резюме не принадлежит указанному кандидату")
+        if resume.status != 'ACCEPTED':
+            raise serializers.ValidationError("Резюме должно быть принято для назначения собеседования")
 
         # Проверка занятости кандидата или сотрудника
         if Interview.objects.filter(
@@ -244,30 +223,11 @@ class InterviewCreateSerializer(serializers.ModelSerializer):
 class InterviewSerializer(serializers.ModelSerializer):
     candidate = CandidateSerializer(read_only=True)
     employee = EmployeeSerializer(read_only=True)
-    resume_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['JOB', 'PRACTICE']], required=True)
-    practice_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['PRE_DIPLOMA', 'PRODUCTION', 'EDUCATIONAL']], required=False, allow_null=True)
-    job_type = serializers.ChoiceField(choices=[(choice, choice) for choice in ['PROGRAMMER', 'METHODOLOGIST', 'SPECIALIST']], required=False)
-    job_type_display = serializers.SerializerMethodField()
-    practice_type_display = serializers.SerializerMethodField()
+    resume = ResumeSerializer(read_only=True)
 
     class Meta:
         model = Interview
-        fields = ['id', 'candidate', 'employee', 'scheduled_at', 'status', 'result', 'comment', 'resume_type', 'practice_type', 'practice_type_display', 'job_type', 'job_type_display']
-
-    def get_job_type_display(self, obj):
-        return {
-            'PROGRAMMER': 'Инженер-программист',
-            'METHODOLOGIST': 'Методолог',
-            'SPECIALIST': 'Специалист'
-        }.get(obj.job_type, '')
-
-    def get_practice_type_display(self, obj):
-        return {
-            'PRE_DIPLOMA': 'Преддипломная',
-            'PRODUCTION': 'Производственная',
-            'EDUCATIONAL': 'Учебная',
-            None: '-'
-        }.get(obj.practice_type, '')
+        fields = ['id', 'candidate', 'employee', 'resume', 'scheduled_at', 'status', 'result', 'comment']
 
 class DocumentHistorySerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()
