@@ -74,7 +74,7 @@ class DocumentStatusChoices(models.TextChoices):
 
 class DocumentTypeChoices(models.TextChoices):
     PASSPORT = 'Паспорт', _('Паспорт')
-    MILITARY = 'Приписное/Военник', _('Приписное/Военник')
+    MILITARY = 'Военный билет/Приписное', _('Военный билет/Приписное')
     DIPLOMA = 'Аттестат/Диплом', _('Аттестат/Диплом')
     PSYCH = 'Справка с психодиспансера', _('Справка с психодиспансера')
     NARC = 'Справка с наркодиспансера', _('Справка с наркодиспансера')
@@ -82,7 +82,7 @@ class DocumentTypeChoices(models.TextChoices):
     CONSENT = 'Согласие на обработку персональных данных', _('Согласие на обработку персональных данных')
     INN = 'ИНН', _('ИНН')
     SNILS = 'СНИЛС', _('СНИЛС')
-    LABOR_BOOK = 'Трудовая книжка (опционально)', _('Трудовая книжка (опционально)')
+    LABOR_BOOK = 'Автобиография', _('Автобиография')
     PRACTICE_AGREEMENT = 'Договор о практике', _('Договор о практике')
     PRACTICE_REQUEST = 'Заявление на практику', _('Заявление на практику')
 
@@ -134,7 +134,10 @@ class Candidate(models.Model):
 
     @property
     def has_successful_interview(self):
-        return self.interviews.filter(result='SUCCESS').exists()
+        return {
+            'JOB': self.interviews.filter(result='SUCCESS', resume__resume_type='JOB').exists(),
+            'PRACTICE': self.interviews.filter(result='SUCCESS', resume__resume_type='PRACTICE').exists()
+        }
 
 class Employee(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='employee_profile')
@@ -183,7 +186,8 @@ class Interview(models.Model):
         ordering = ['scheduled_at']
 
     def __str__(self):
-        return f"Собеседование {self.id} ({self.get_resume_type_display()}) для {self.candidate.user.email}"
+        resume_type_display = self.resume.get_resume_type_display() if self.resume else "Не указано"
+        return f"Собеседование {self.id} ({resume_type_display}) для {self.candidate.user.email}"
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

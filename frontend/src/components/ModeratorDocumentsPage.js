@@ -11,7 +11,7 @@ import DocumentModal from './DocumentModal';
 
 const documentTypes = [
   'Паспорт',
-  'Приписное/Военник',
+  'Военный билет/Приписное',
   'Аттестат/Диплом',
   'Справка с психодиспансера',
   'Справка с наркодиспансера',
@@ -19,7 +19,7 @@ const documentTypes = [
   'Согласие на обработку персональных данных',
   'ИНН',
   'СНИЛС',
-  'Трудовая книжка (опционально)',
+  'Автобиография',
 ];
 
 const modalStyle = {
@@ -102,7 +102,7 @@ const ModeratorDocumentsPage = () => {
     const docs = documents[interviewId] || [];
     const interview = interviews.find((i) => i.id === interviewId);
     const isMale = interview.candidate.user.gender === 'MALE';
-    const requiredTypes = isMale ? documentTypes.slice(0, 9) : documentTypes.filter((type) => type !== 'Приписное/Военник').slice(0, 8);
+    const requiredTypes = isMale ? documentTypes.slice(0, 9) : documentTypes.filter((type) => type !== 'Военный билет/Приписное').slice(0, 8);
     const uploadedTypes = docs.map((doc) => doc.document_type);
     const missingTypes = requiredTypes.filter((type) => !uploadedTypes.includes(type));
     if (missingTypes.length === 0) {
@@ -416,7 +416,7 @@ const ModeratorDocumentsPage = () => {
                 </Tooltip>
                 {documents[interview.id]?.length >= (interview.candidate.user.gender === 'MALE' ? 9 : 8) &&
                   documents[interview.id]
-                    .filter((doc) => (interview.candidate.user.gender === 'MALE' ? documentTypes.slice(0, 9) : documentTypes.filter((type) => type !== 'Приписное/Военник').slice(0, 8)).includes(doc.document_type))
+                    .filter((doc) => (interview.candidate.user.gender === 'MALE' ? documentTypes.slice(0, 9) : documentTypes.filter((type) => type !== 'Военный билет/Приписное').slice(0, 8)).includes(doc.document_type))
                     .every((doc) => doc.status === 'ACCEPTED') && (
                     <Tooltip title="Подтвердить найм">
                       <Button

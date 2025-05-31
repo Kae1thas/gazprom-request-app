@@ -548,7 +548,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     'СНИЛС'
                 ]
                 if is_male:
-                    required_types.append('Приписное/Военник')
+                    required_types.append('Военный билет/Приписное')
             else:
                 required_types = [
                     'Паспорт',

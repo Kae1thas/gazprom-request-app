@@ -17,7 +17,7 @@ from django.conf.urls.static import static
 router = DefaultRouter()
 router.register(r'candidates', CandidateViewSet)
 router.register(r'resumes', ResumeViewSet)
-router.register(r'documents', DocumentViewSet, basename='documents')  # Добавляем basename
+router.register(r'documents', DocumentViewSet, basename='documents')
 router.register(r'interviews', InterviewViewSet, basename='interviews')
 router.register(r'notifications', NotificationViewSet)
 

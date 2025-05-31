@@ -47,8 +47,8 @@ export const AuthProvider = ({ children }) => {
             headers: { Authorization: `Bearer ${token}` },
           });
           const hasSuccess = {
-            JOB: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume_type === 'JOB'),
-            PRACTICE: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume_type === 'PRACTICE'),
+            JOB: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume?.resume_type === 'JOB'),
+            PRACTICE: interviewResponse.data.some((i) => i.result === 'SUCCESS' && i.resume?.resume_type === 'PRACTICE'),
           };
           setHasSuccessfulInterview(hasSuccess);
         } catch (interviewErr) {

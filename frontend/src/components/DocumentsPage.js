@@ -16,7 +16,7 @@ const jobDocumentTypes = [
   'Согласие на обработку персональных данных',
   'ИНН',
   'СНИЛС',
-  'Трудовая книжка (опционально)',
+  'Автобиография',
 ];
 
 const practiceDocumentTypes = [
@@ -28,12 +28,13 @@ const practiceDocumentTypes = [
 const DocumentsPage = () => {
   const { user, loading, interviewLoading, hasSuccessfulInterview } = useContext(AuthContext);
   const [documents, setDocuments] = useState([]);
+  const [interviews, setInterviews] = useState([]);
   const [error, setError] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [activeTab, setActiveTab] = useState('JOB');
 
-  const effectiveJobDocumentTypes = user?.gender === 'MALE' ? ['Приписное/Военник', ...jobDocumentTypes] : jobDocumentTypes;
+  const effectiveJobDocumentTypes = user?.gender === 'MALE' ? ['Военный билет/Приписное', ...jobDocumentTypes] : jobDocumentTypes;
 
   useEffect(() => {
     if (loading || interviewLoading) return;
@@ -54,25 +55,45 @@ const DocumentsPage = () => {
       return;
     }
 
-    const fetchDocuments = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/documents/', {
+        // Запрос собеседований
+        const interviewResponse = await axios.get('http://localhost:8000/api/interviews/my/', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        console.log('Fetched documents (raw):', JSON.stringify(response.data, null, 2));
-        setDocuments(response.data);
+        setInterviews(interviewResponse.data);
+
+        // Запрос документов
+        const docResponse = await axios.get('http://localhost:8000/api/documents/', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log('Fetched documents:', JSON.stringify(docResponse.data, null, 2));
+        setDocuments(docResponse.data);
       } catch (err) {
-        console.error('Error fetching documents:', err);
-        setError('Не удалось загрузить документы');
+        console.error('Error fetching data:', err);
+        setError('Не удалось загрузить данные');
       }
     };
 
-    fetchDocuments();
+    fetchData();
   }, [user, loading, interviewLoading, hasSuccessfulInterview]);
+
+  const getResumeIdForType = (resumeType) => {
+    const successfulInterview = interviews.find(
+      (interview) => interview.result === 'SUCCESS' && interview.resume?.resume_type === resumeType
+    );
+    return successfulInterview?.resume?.id || null;
+  };
 
   const handleUpload = async (slot, file, resumeType) => {
     if (!file) {
       toast.error('Выберите файл для загрузки');
+      return;
+    }
+
+    const resumeId = getResumeIdForType(resumeType);
+    if (!resumeId) {
+      toast.error(`Нет успешного собеседования для ${resumeType === 'JOB' ? 'трудоустройства' : 'практики'}.`);
       return;
     }
 
@@ -81,7 +102,8 @@ const DocumentsPage = () => {
     formData.append('file_path', file);
     const documentType = resumeType === 'JOB' ? effectiveJobDocumentTypes[slot - 1] : practiceDocumentTypes[slot - 1];
     formData.append('document_type', documentType);
-    formData.append('resume_type', resumeType); // Добавляем resume_type
+    formData.append('resume_type', resumeType);
+    formData.append('resume_id', resumeId);
 
     try {
       const response = await axios.post(
@@ -90,6 +112,7 @@ const DocumentsPage = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success(`Документ "${documentType}" успешно загружен!`);
+      console.log('Uploaded document:', JSON.stringify(response.data, null, 2));
       setDocuments((prev) => [...prev, response.data]);
     } catch (err) {
       const errorMessage =
@@ -140,31 +163,6 @@ const DocumentsPage = () => {
     setActiveTab(newValue);
   };
 
-  if (loading || interviewLoading) {
-    return (
-      <div className="container mt-5 text-center">
-        <div className="spinner-border" role="status">
-          <span className="visually-hidden">Загрузка...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-
-  if (!hasSuccessfulInterview.JOB && !hasSuccessfulInterview.PRACTICE) {
-    return (
-      <div className="container mt-5 alert alert-danger">
-        У вас нет успешного собеседования для загрузки документов.{' '}
-        <a href="/interview" className="alert-link">
-          Перейти к собеседованиям
-        </a>
-      </div>
-    );
-  }
-
   const renderDocumentTable = (documentTypes, resumeType) => {
     if (!hasSuccessfulInterview[resumeType]) {
       return (
@@ -174,7 +172,16 @@ const DocumentsPage = () => {
       );
     }
 
-    console.log(`Rendering table for ${resumeType}, documents:`, JSON.stringify(documents, null, 2));
+    const resumeId = getResumeIdForType(resumeType);
+    if (!resumeId) {
+      return (
+        <div className="alert alert-warning">
+          У вас нет успешного собеседования для {resumeType === 'JOB' ? 'трудоустройства' : 'практики'}.
+        </div>
+      );
+    }
+
+    console.log(`Rendering table for ${resumeType}, resumeId: ${resumeId}, documents:`, JSON.stringify(documents, null, 2));
 
     return (
       <>
@@ -225,14 +232,10 @@ const DocumentsPage = () => {
           <TableBody>
             {documentTypes.map((type, index) => {
               const slotNumber = index + 1;
-              const doc = documents.find((d) => {
-                const matches = d.document_type === type && d.interview?.resume_type === resumeType;
-                console.log(
-                  `Checking doc: type=${d.document_type}, interview.resume_type=${d.interview?.resume_type}, expected=${resumeType}, matches=${matches}`
-                );
-                return matches;
-              });
-              console.log(`Found doc for type=${type}, resumeType=${resumeType}:`, doc);
+              const doc = documents.find(
+                (d) => d.document_type === type && d.interview?.resume?.id === resumeId && d.interview?.resume?.resume_type === resumeType
+              );
+              console.log(`Checking doc: type=${type}, resumeId=${resumeId}, resumeType=${resumeType}, found:`, doc);
               return (
                 <TableRow key={`${resumeType}-${slotNumber}`}>
                   <TableCell>{type}</TableCell>
@@ -247,7 +250,7 @@ const DocumentsPage = () => {
                               : 'bg-warning'
                         }`}
                       >
-                        {doc.status_display}
+                        {doc.status_display || doc.status}
                       </span>
                     ) : (
                       'Не загружен'
@@ -272,19 +275,21 @@ const DocumentsPage = () => {
                           </Button>
                         </Tooltip>
                         {doc.file_path && (
-                          <Button
-                            onClick={() => handleDownload(doc.file_path)}
-                            sx={{
-                              backgroundColor: '#ffc107',
-                              color: '#fff',
-                              '&:hover': { backgroundColor: '#e0a800' },
-                              borderRadius: '8px',
-                              minWidth: '40px',
-                              padding: '8px',
-                            }}
-                          >
-                            <Download fontSize="small" />
-                          </Button>
+                          <Tooltip title="Скачать">
+                            <Button
+                              onClick={() => handleDownload(doc.file_path)}
+                              sx={{
+                                backgroundColor: '#ffc107',
+                                color: '#fff',
+                                '&:hover': { backgroundColor: '#e0a800' },
+                                borderRadius: '8px',
+                                minWidth: '40px',
+                                padding: '8px',
+                              }}
+                            >
+                              <Download fontSize="small" />
+                            </Button>
+                          </Tooltip>
                         )}
                         <Tooltip title="Удалить">
                           <Button
@@ -334,6 +339,31 @@ const DocumentsPage = () => {
       </>
     );
   };
+
+  if (loading || interviewLoading) {
+    return (
+      <div className="container mt-5 text-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Загрузка...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  if (!hasSuccessfulInterview.JOB && !hasSuccessfulInterview.PRACTICE) {
+    return (
+      <div className="container mt-5 alert alert-danger">
+        У вас нет успешного собеседования для загрузки документов.{' '}
+        <a href="/interview" className="alert-link">
+          Перейти к собеседованиям
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-5">
